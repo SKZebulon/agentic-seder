@@ -27,6 +27,12 @@ interface CharMesh {
   phase: number;
 }
 
+/** Newer Three.js marks `position` read-only; Object.assign(mesh, { position }) throws. */
+function place<T extends THREE.Object3D>(obj: T, x: number, y: number, z: number): T {
+  obj.position.set(x, y, z);
+  return obj;
+}
+
 function buildSederScene(canvas: HTMLCanvasElement) {
   const w = canvas.clientWidth, h = canvas.clientHeight;
   const scene = new THREE.Scene();
@@ -45,43 +51,43 @@ function buildSederScene(canvas: HTMLCanvasElement) {
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
 
   // Wall
-  scene.add(Object.assign(new THREE.Mesh(new THREE.PlaneGeometry(30, 10), new THREE.MeshStandardMaterial({ color: 0x1E1610 })), { position: new THREE.Vector3(0, 5, -8) }));
+  scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(30, 10), new THREE.MeshStandardMaterial({ color: 0x1E1610 })), 0, 5, -8));
 
   // Table
   const tMat = new THREE.MeshStandardMaterial({ color: 0x3D2817, roughness: 0.7 });
   const table = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 3.5, 0.12, 32), tMat);
   table.position.y = 1; table.scale.set(1.3, 1, 1); table.castShadow = true; table.receiveShadow = true; scene.add(table);
-  for (let i = 0; i < 4; i++) { const a = (i / 4) * Math.PI * 2 + Math.PI / 4; scene.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1, 6), tMat), { position: new THREE.Vector3(Math.cos(a) * 2.8, 0.5, Math.sin(a) * 2.2) })); }
+  for (let i = 0; i < 4; i++) { const a = (i / 4) * Math.PI * 2 + Math.PI / 4; scene.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1, 6), tMat), Math.cos(a) * 2.8, 0.5, Math.sin(a) * 2.2)); }
 
   // Tablecloth
   const cloth = new THREE.Mesh(new THREE.RingGeometry(3.2, 4.6, 32), new THREE.MeshStandardMaterial({ color: 0xFAF0E6, side: THREE.DoubleSide }));
   cloth.rotation.x = -Math.PI / 2; cloth.position.y = 1.07; cloth.scale.set(1.3, 1, 1); scene.add(cloth);
 
   // Seder plate
-  scene.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.03, 20), new THREE.MeshStandardMaterial({ color: 0xC0A080, metalness: 0.3 })), { position: new THREE.Vector3(0, 1.1, 0) }));
-  [0x4A7A3A, 0x8B4513, 0xF5DEB3, 0xFFFFE0, 0x654321, 0x4A7A3A].forEach((c, i) => { const a = (i / 6) * Math.PI * 2; scene.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshStandardMaterial({ color: c })), { position: new THREE.Vector3(Math.cos(a) * 0.28, 1.14, Math.sin(a) * 0.28) })); });
+  scene.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.03, 20), new THREE.MeshStandardMaterial({ color: 0xC0A080, metalness: 0.3 })), 0, 1.1, 0));
+  [0x4A7A3A, 0x8B4513, 0xF5DEB3, 0xFFFFE0, 0x654321, 0x4A7A3A].forEach((c, i) => { const a = (i / 6) * Math.PI * 2; scene.add(place(new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshStandardMaterial({ color: c })), Math.cos(a) * 0.28, 1.14, Math.sin(a) * 0.28)); });
 
   // Matzah stack
-  for (let i = 0; i < 3; i++) scene.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.015, 12), new THREE.MeshStandardMaterial({ color: 0xD2B48C, roughness: 0.9 })), { position: new THREE.Vector3(-0.6, 1.1 + i * 0.02, 0.3) }));
+  for (let i = 0; i < 3; i++) scene.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.015, 12), new THREE.MeshStandardMaterial({ color: 0xD2B48C, roughness: 0.9 })), -0.6, 1.1 + i * 0.02, 0.3));
 
   // Candles
   const candles: THREE.Object3D[] = [];
   [[-0.25, 0, -0.55], [0.25, 0, -0.55]].forEach(([cx, , cz]) => {
-    scene.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.28, 8), new THREE.MeshStandardMaterial({ color: 0xC0C0C0, metalness: 0.8 })), { position: new THREE.Vector3(cx, 1.24, cz) }));
-    scene.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.22, 8), new THREE.MeshStandardMaterial({ color: 0xFFF8DC })), { position: new THREE.Vector3(cx, 1.47, cz) }));
+    scene.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.28, 8), new THREE.MeshStandardMaterial({ color: 0xC0C0C0, metalness: 0.8 })), cx, 1.24, cz));
+    scene.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.22, 8), new THREE.MeshStandardMaterial({ color: 0xFFF8DC })), cx, 1.47, cz));
     const f = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.05, 6), new THREE.MeshBasicMaterial({ color: 0xFFAA33 }));
     f.position.set(cx, 1.62, cz); scene.add(f); candles.push(f);
     const cl = new THREE.PointLight(0xFFAA33, 0.7, 8); cl.position.set(cx, 1.65, cz); cl.castShadow = true; scene.add(cl); candles.push(cl);
   });
 
   // Elijah cup
-  scene.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.035, 0.16, 10), new THREE.MeshStandardMaterial({ color: 0xDAA520, metalness: 0.7, roughness: 0.3 })), { position: new THREE.Vector3(0, 1.18, -0.28) }));
+  scene.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.035, 0.16, 10), new THREE.MeshStandardMaterial({ color: 0xDAA520, metalness: 0.7, roughness: 0.3 })), 0, 1.18, -0.28));
 
   // Lighting
   scene.add(new THREE.AmbientLight(0x1A1008, 0.4));
   const over = new THREE.PointLight(0xFFEECC, 0.6, 20); over.position.set(0, 6, 0); over.castShadow = true; scene.add(over);
-  scene.add(Object.assign(new THREE.PointLight(0xFF8844, 0.3, 12), { position: new THREE.Vector3(-5, 3, -3) }));
-  scene.add(Object.assign(new THREE.PointLight(0xFF8844, 0.3, 12), { position: new THREE.Vector3(5, 3, -3) }));
+  scene.add(place(new THREE.PointLight(0xFF8844, 0.3, 12), -5, 3, -3));
+  scene.add(place(new THREE.PointLight(0xFF8844, 0.3, 12), 5, 3, -3));
 
   // Characters
   const chars: Record<string, CharMesh> = {};
@@ -94,9 +100,9 @@ function buildSederScene(canvas: HTMLCanvasElement) {
 
     // Chair
     const chMat = new THREE.MeshStandardMaterial({ color: 0x4A3520 });
-    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.42), chMat), { position: new THREE.Vector3(0, 0.64, 0) }));
-    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.55, 0.04), chMat), { position: new THREE.Vector3(0, 0.95, -0.19) }));
-    for (let l = 0; l < 4; l++) g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.64, 6), chMat), { position: new THREE.Vector3(l % 2 ? 0.2 : -0.2, 0.32, l < 2 ? -0.17 : 0.17) }));
+    g.add(place(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.42), chMat), 0, 0.64, 0));
+    g.add(place(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.55, 0.04), chMat), 0, 0.95, -0.19));
+    for (let l = 0; l < 4; l++) g.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.64, 6), chMat), l % 2 ? 0.2 : -0.2, 0.32, l < 2 ? -0.17 : 0.17));
 
     // Body
     const bMat = new THREE.MeshStandardMaterial({ color: ch.color, roughness: 0.7 });
@@ -123,9 +129,9 @@ function buildSederScene(canvas: HTMLCanvasElement) {
     const rArm = new THREE.Mesh(armGeo, bMat.clone()); rArm.position.set(ch.bodyW + 0.04, baseY - 0.02, 0.08); rArm.rotation.z = -0.25; g.add(rArm);
 
     // Cup + wine + plate
-    g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.02, 0.09, 8), new THREE.MeshStandardMaterial({ color: 0xC0C0C0, metalness: 0.5 })), { position: new THREE.Vector3(0.15, 1.1, 0.32) }));
-    g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.027, 0.027, 0.025, 8), new THREE.MeshStandardMaterial({ color: 0x722F37 })), { position: new THREE.Vector3(0.15, 1.12, 0.32) }));
-    g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.008, 12), new THREE.MeshStandardMaterial({ color: 0xFAF0E6 })), { position: new THREE.Vector3(-0.1, 1.07, 0.32) }));
+    g.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.02, 0.09, 8), new THREE.MeshStandardMaterial({ color: 0xC0C0C0, metalness: 0.5 })), 0.15, 1.1, 0.32));
+    g.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.027, 0.027, 0.025, 8), new THREE.MeshStandardMaterial({ color: 0x722F37 })), 0.15, 1.12, 0.32));
+    g.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.008, 12), new THREE.MeshStandardMaterial({ color: 0xFAF0E6 })), -0.1, 1.07, 0.32));
 
     scene.add(g);
     chars[ch.id] = { group: g, body, head, lArm, rArm, baseY, headY, standing: false, speaking: false, celebrating: false, drinking: false, phase: Math.random() * 6.28 };
