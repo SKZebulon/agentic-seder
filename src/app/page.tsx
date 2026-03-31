@@ -7,6 +7,13 @@ import { buildScript } from '@/data/haggadah-script';
 import { AudioEngine } from '@/engine/audio';
 import { DialogueEngine } from '@/engine/dialogue';
 import { Director } from '@/engine/director';
+import {
+  defaultPrefs,
+  loadPrefs,
+  savePrefs,
+  subtitleFontPx,
+  type SederPrefs,
+} from '@/lib/seder-settings';
 
 // ═══════════════════════════════════════════════════════════════
 // 3D SCENE BUILDER
@@ -33,11 +40,16 @@ function place<T extends THREE.Object3D>(obj: T, x: number, y: number, z: number
   return obj;
 }
 
-function buildSederScene(canvas: HTMLCanvasElement) {
+function buildSederScene(
+  canvas: HTMLCanvasElement,
+  opts?: { cinematic?: boolean; reducedMotion?: boolean }
+) {
+  const cinematic = opts?.cinematic !== false;
+  const reducedMotion = opts?.reducedMotion === true;
   const w = canvas.clientWidth, h = canvas.clientHeight;
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x18120E);
-  scene.fog = new THREE.FogExp2(0x14100C, 0.018);
+  scene.background = new THREE.Color(0x0a0614);
+  scene.fog = new THREE.FogExp2(0x06020c, 0.014);
   const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 100);
   camera.position.set(0, 7, 10);
   camera.lookAt(0, 1, 0);
@@ -79,8 +91,12 @@ function buildSederScene(canvas: HTMLCanvasElement) {
     scene.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.28, 8), new THREE.MeshStandardMaterial({ color: 0xC0C0C0, metalness: 0.8 })), cx, 1.24, cz));
     scene.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.22, 8), new THREE.MeshStandardMaterial({ color: 0xFFF8DC })), cx, 1.47, cz));
     const f = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.05, 6), new THREE.MeshBasicMaterial({ color: 0xFFAA33 }));
-    f.position.set(cx, 1.62, cz); scene.add(f); candles.push(f);
-    const cl = new THREE.PointLight(0xFFCC66, 1.4, 18, 1.8); cl.position.set(cx, 1.65, cz); cl.castShadow = true; scene.add(cl); candles.push(cl);
+    f.position.set(cx, 1.62, cz);
+    f.userData.isFlame = true;
+    scene.add(f); candles.push(f);
+    const cl = new THREE.PointLight(0xFFCC66, 1.4, 18, 1.8); cl.position.set(cx, 1.65, cz); cl.castShadow = true;
+    cl.userData.isCandleLight = true;
+    scene.add(cl); candles.push(cl);
   });
 
   // Elijah cup
@@ -142,7 +158,7 @@ function buildSederScene(canvas: HTMLCanvasElement) {
     chars[ch.id] = { group: g, body, head, lArm, rArm, baseY, headY, standing: false, speaking: false, celebrating: false, drinking: false, phase: Math.random() * 6.28 };
   });
 
-  return { scene, camera, renderer, chars, candles, over };
+  return { scene, camera, renderer, chars, candles, over, cinematic, reducedMotion };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -157,9 +173,21 @@ export default function SederPage() {
   const animRef = useRef<number>(0);
 
   const [started, setStarted] = useState(false);
-  const [tradition, setTradition] = useState<'ashkenazi' | 'sephardi'>('ashkenazi');
-  const [speakLang, setSpeakLang] = useState<'en' | 'he' | 'both'>('en');
-  const [useAI, setUseAI] = useState(true);
+  const [prefs, setPrefs] = useState<SederPrefs>(defaultPrefs);
+  const [agentThinking, setAgentThinking] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    setPrefs(loadPrefs());
+  }, []);
+
+  const patchPrefs = useCallback((p: Partial<SederPrefs>) => {
+    setPrefs((prev) => {
+      const next = { ...prev, ...p };
+      savePrefs(next);
+      return next;
+    });
+  }, []);
 
   const [phase, setPhase] = useState('');
   const [subtitle, setSubtitle] = useState({ he: '', en: '', speaker: '' as string | null });
@@ -191,16 +219,27 @@ export default function SederPage() {
         else if (!c.speaking && !c.drinking) { c.lArm.rotation.z += (0.25 - c.lArm.rotation.z) * 0.05; c.lArm.rotation.x *= 0.93; }
       });
 
-      sc.candles.forEach((c: any, i: number) => {
-        if (c.isLight) c.intensity = 0.7 + Math.sin(t * 8 + i) * 0.2;
-        else if (c.isMesh) { c.scale.x = 1 + Math.sin(t * 10 + i) * 0.15; c.position.x += Math.sin(t * 7 + i) * 0.0002; }
+      sc.candles.forEach((obj: THREE.Object3D, i: number) => {
+        if (obj.userData?.isCandleLight && obj instanceof THREE.PointLight) {
+          obj.intensity = 1.25 + Math.sin(t * 8 + i * 0.5) * 0.35;
+        } else if (obj.userData?.isFlame && obj instanceof THREE.Mesh) {
+          const f = obj as THREE.Mesh;
+          f.scale.y = 1 + Math.sin(t * 10 + i) * 0.12;
+          f.scale.x = 1 + Math.sin(t * 11 + i) * 0.08;
+        }
       });
 
-      const ca = t * 0.06;
-      sc.camera.position.x = Math.sin(ca) * 10;
-      sc.camera.position.z = 6 + Math.cos(ca) * 4;
-      sc.camera.position.y = 5.5 + Math.sin(t * 0.08) * 1.5;
-      sc.camera.lookAt(0, 1.2, 0);
+      const orbit = sc.cinematic !== false && !sc.reducedMotion;
+      if (!orbit) {
+        sc.camera.position.set(0, 7, 10);
+        sc.camera.lookAt(0, 1.2, 0);
+      } else {
+        const ca = t * 0.05;
+        sc.camera.position.x = Math.sin(ca) * 8.5;
+        sc.camera.position.z = 6.2 + Math.cos(ca) * 3.6;
+        sc.camera.position.y = 5.2 + Math.sin(t * 0.07) * 1.2;
+        sc.camera.lookAt(0, 1.15, 0);
+      }
       sc.renderer.render(sc.scene, sc.camera);
     };
     loop();
@@ -208,24 +247,27 @@ export default function SederPage() {
 
   const startSeder = async () => {
     setStarted(true);
-    const script = buildScript(tradition);
+    const script = buildScript(prefs.tradition);
     setTotalBeats(script.length);
 
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 400));
 
     // Init audio
     const audio = new AudioEngine();
     await audio.init();
-    audio.speakLang = speakLang;
+    audio.speakLang = prefs.speakLang;
     audio.enabled = audioOn;
 
-    // Init dialogue engine
-    const dialogue = new DialogueEngine();
+    // Init dialogue engine — agent activity lights up the “thinking” UI
+    const dialogue = new DialogueEngine((active) => setAgentThinking(active));
     await dialogue.loadProfiles(DEFAULT_CHARACTERS.map(c => c.id));
 
     // Init 3D
     clockRef.current = new THREE.Clock();
-    const sc = buildSederScene(canvasRef.current!);
+    const sc = buildSederScene(canvasRef.current!, {
+      cinematic: prefs.cinematicCamera,
+      reducedMotion: prefs.reducedMotion,
+    });
     sceneRef.current = sc;
     animateScene(sc, clockRef.current);
 
@@ -266,11 +308,18 @@ export default function SederPage() {
         if (spk === 'all') Object.values(sc.chars).forEach((c: CharMesh) => { c.speaking = false; c.celebrating = false; c.drinking = false; });
         else { const c = sc.chars[spk]; if (c) { c.speaking = false; c.celebrating = false; c.drinking = false; } }
       },
-    }, useAI);
+    }, prefs.useAI);
 
     directorRef.current = director;
     director.run();
   };
+
+  useEffect(() => {
+    const sc = sceneRef.current;
+    if (!sc || !('cinematic' in sc)) return;
+    sc.cinematic = prefs.cinematicCamera;
+    sc.reducedMotion = prefs.reducedMotion;
+  }, [prefs.cinematicCamera, prefs.reducedMotion, started]);
 
   // Sync pause/speed to director
   useEffect(() => { if (directorRef.current) directorRef.current.setPaused(paused); }, [paused]);
@@ -278,49 +327,132 @@ export default function SederPage() {
 
   const speakerName = speaker === 'all' ? 'Everyone' : charMap[speaker || '']?.name || '';
   const speakerRole = speaker === 'all' ? '' : charMap[speaker || '']?.role || '';
+  const subFonts = subtitleFontPx(prefs.subtitleScale);
 
   // ── SPLASH SCREEN ──
   if (!started) return (
-    <div style={{ minHeight: '100vh', background: 'radial-gradient(ellipse at 40% 30%,#2A1F14 0%,#0C0906 70%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}@keyframes flicker{0%,100%{opacity:1}40%{opacity:0.8}}@keyframes glow{0%,100%{text-shadow:0 0 10px #D4A01733}50%{text-shadow:0 0 25px #D4A01766}}`}</style>
-      <div style={{ textAlign: 'center', animation: 'fadeIn 2s ease', maxWidth: 520 }}>
-        <div style={{ fontSize: 48, marginBottom: 24, display: 'flex', justifyContent: 'center', gap: 32 }}>
-          <span style={{ animation: 'flicker 4s infinite' }}>🕯️</span>
-          <span style={{ animation: 'flicker 4s infinite 1s' }}>🕯️</span>
+    <div style={{ minHeight: '100vh', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px 32px' }}>
+      <div className="seder-magical-bg" aria-hidden />
+      <div className="seder-ember-layer" aria-hidden>
+        {Array.from({ length: 18 }).map((_, i) => (
+          <div
+            key={i}
+            className="seder-ember"
+            style={{
+              left: `${5 + (i * 5.7) % 88}%`,
+              animationDelay: `${i * 0.55}s`,
+              animationDuration: `${11 + (i % 6)}s`,
+            }}
+          />
+        ))}
+      </div>
+      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', animation: 'fadeIn 1.2s ease', maxWidth: 480, width: '100%' }}>
+        <div style={{ fontSize: 'clamp(40px,11vw,56px)', marginBottom: 20, display: 'flex', justifyContent: 'center', gap: 28, filter: 'drop-shadow(0 0 20px rgba(232,197,106,0.25))' }}>
+          <span style={{ animation: 'seder-float 3s ease-in-out infinite' }}>🕯️</span>
+          <span style={{ animation: 'seder-float 3s ease-in-out infinite 0.5s' }}>✡️</span>
+          <span style={{ animation: 'seder-float 3s ease-in-out infinite 1s' }}>🕯️</span>
         </div>
-        <div style={{ color: '#D4A017', fontSize: 11, letterSpacing: 6, textTransform: 'uppercase' as const, marginBottom: 16 }}>A Fully Autonomous 3D AI Experience</div>
-        <h1 style={{ color: '#FAF0E6', fontSize: 52, fontWeight: 200, margin: 0, lineHeight: 1, animation: 'glow 4s infinite' }}>The Agentic Seder</h1>
-        <div style={{ color: '#8B7355', fontSize: 38, margin: '8px 0 24px' }}>הַסֵּדֶר</div>
-        <p style={{ color: '#8B7355', fontSize: 14, lineHeight: 1.7, maxWidth: 400, margin: '0 auto 20px' }}>
-          12 characters with AI-generated personalities sit around a 3D table and conduct a complete Passover Seder — every blessing, every song, every argument — all on their own.
+        <p style={{ color: 'var(--seder-gold-dim)', fontSize: 11, letterSpacing: '0.35em', textTransform: 'uppercase' as const, marginBottom: 12, fontFamily: 'var(--font-body)' }}>
+          Autonomous · AI · 3D
+        </p>
+        <h1 style={{
+          fontFamily: 'var(--font-display)',
+          color: '#FAF0E6',
+          fontSize: 'clamp(2.4rem, 8vw, 3.4rem)',
+          fontWeight: 500,
+          margin: 0,
+          lineHeight: 1.05,
+          textShadow: '0 0 80px rgba(232,197,106,0.2)',
+        }}>
+          The Agentic Seder
+        </h1>
+        <div style={{ color: 'var(--seder-gold)', fontSize: 'clamp(1.5rem,5vw,2rem)', margin: '12px 0 20px', fontWeight: 300, letterSpacing: '0.02em' }}>הַסֵּדֶר</div>
+        <p style={{ color: '#a09080', fontSize: 15, lineHeight: 1.75, margin: '0 auto 28px', maxWidth: 420 }}>
+          Twelve souls around one table — liturgy, song, and <strong style={{ color: '#c9a86c' }}>living dialogue</strong> shaped by your character profiles. Press play and let the night unfold.
         </p>
 
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 16 }}>
-          {(['ashkenazi', 'sephardi'] as const).map(t => (
-            <button key={t} onClick={() => setTradition(t)} style={{ background: tradition === t ? '#D4A01733' : '#1A1410', border: `1px solid ${tradition === t ? '#D4A017' : '#3D3428'}`, color: tradition === t ? '#D4A017' : '#8B7355', borderRadius: 8, padding: '8px 20px', cursor: 'pointer', fontSize: 14, fontFamily: "'Crimson Pro',serif" }}>
-              {t === 'ashkenazi' ? 'Ashkenazi' : 'Sephardi'}
+        <div className="seder-glass-panel" style={{ padding: '22px 20px 24px', marginBottom: 22, textAlign: 'left' }}>
+          <div style={{ color: 'var(--seder-gold)', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase' as const, marginBottom: 12 }}>Tradition</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
+            {(['ashkenazi', 'sephardi'] as const).map(t => (
+              <button
+                key={t}
+                type="button"
+                className="seder-setting-chip"
+                data-active={prefs.tradition === t}
+                onClick={() => patchPrefs({ tradition: t })}
+              >
+                {t === 'ashkenazi' ? 'Ashkenazi' : 'Sephardi'}
+              </button>
+            ))}
+          </div>
+          <div style={{ color: 'var(--seder-gold)', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase' as const, marginBottom: 12 }}>Voice</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
+            {([['en', 'English'], ['he', 'עברית'], ['both', 'Both']] as const).map(([v, l]) => (
+              <button
+                key={v}
+                type="button"
+                className="seder-setting-chip"
+                data-active={prefs.speakLang === v}
+                onClick={() => patchPrefs({ speakLang: v })}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+          <div style={{ color: 'var(--seder-gold)', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase' as const, marginBottom: 12 }}>Agent (dialogue)</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18, alignItems: 'center' }}>
+            <button
+              type="button"
+              className="seder-setting-chip"
+              data-active={prefs.useAI}
+              onClick={() => patchPrefs({ useAI: !prefs.useAI })}
+            >
+              {prefs.useAI ? '✨ Claude — on' : '📝 Scripted only'}
             </button>
-          ))}
+            <span style={{ color: '#6a5a4a', fontSize: 12, marginLeft: 4 }}>Uses profiles in <code style={{ color: '#8a7a6a' }}>public/characters/</code></span>
+          </div>
+          <div style={{ color: 'var(--seder-gold)', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase' as const, marginBottom: 12 }}>Experience</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            {(['sm', 'md', 'lg'] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                className="seder-setting-chip"
+                data-active={prefs.subtitleScale === s}
+                onClick={() => patchPrefs({ subtitleScale: s })}
+              >
+                Subtitles {s.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <button
+              type="button"
+              className="seder-setting-chip"
+              data-active={prefs.cinematicCamera}
+              onClick={() => patchPrefs({ cinematicCamera: !prefs.cinematicCamera })}
+            >
+              Cinematic camera
+            </button>
+            <button
+              type="button"
+              className="seder-setting-chip"
+              data-active={prefs.reducedMotion}
+              onClick={() => patchPrefs({ reducedMotion: !prefs.reducedMotion })}
+            >
+              Calm motion
+            </button>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
-          <span style={{ color: '#5A4D3C', fontSize: 12, alignSelf: 'center' }}>Voice:</span>
-          {([['en', 'English'], ['he', 'עברית'], ['both', 'Both']] as const).map(([v, l]) => (
-            <button key={v} onClick={() => setSpeakLang(v as any)} style={{ background: speakLang === v ? '#3A2A10' : '#1A1410', border: `1px solid ${speakLang === v ? '#D4A017' : '#3D3428'}`, color: speakLang === v ? '#D4A017' : '#5A4D3C', borderRadius: 6, padding: '4px 12px', cursor: 'pointer', fontSize: 12 }}>{l}</button>
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 24 }}>
-          <button onClick={() => setUseAI(!useAI)} style={{ background: useAI ? '#2D5A2733' : '#1A1410', border: `1px solid ${useAI ? '#7EC87E' : '#3D3428'}`, color: useAI ? '#7EC87E' : '#5A4D3C', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontSize: 12 }}>
-            {useAI ? '🤖 AI Dialogue ON' : '📝 Fallback Dialogue'}
-          </button>
-        </div>
-
-        <button onClick={startSeder} style={{ background: 'linear-gradient(135deg,#8B1A1A,#4A0A0A)', color: '#FAF0E6', border: '1px solid #A0282844', borderRadius: 14, padding: '18px 56px', fontSize: 20, fontFamily: "'Crimson Pro',serif", fontWeight: 300, cursor: 'pointer', letterSpacing: 1, boxShadow: '0 6px 40px rgba(139,26,26,0.35)', transition: 'transform 0.2s' }}
-          onMouseOver={e => (e.currentTarget.style.transform = 'scale(1.06)')} onMouseOut={e => (e.currentTarget.style.transform = 'scale(1)')}>
-          Light the Candles
+        <button type="button" className="seder-btn-primary" onClick={startSeder}>
+          Light the candles
         </button>
-        <div style={{ color: '#3D3428', fontSize: 11, marginTop: 20 }}>12 characters · AI dialogue · Hebrew + English audio · Open Source</div>
+        <p style={{ color: '#4a3c38', fontSize: 12, marginTop: 22, lineHeight: 1.6 }}>
+          Preferences saved in this browser. Open source — edit markdown profiles to match your family.
+        </p>
       </div>
     </div>
   );
@@ -331,22 +463,21 @@ export default function SederPage() {
       width: '100%',
       minHeight: '100vh',
       position: 'relative',
-      background: '#0C0906',
+      background: 'var(--seder-bg-deep)',
       overflow: 'hidden',
       paddingBottom: 'env(safe-area-inset-bottom, 0px)',
     }}>
+      <div className="seder-magical-bg" style={{ opacity: 0.55 }} aria-hidden />
       <style>{`
         @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
         @keyframes subtIn{from{opacity:0}to{opacity:1}}
         .seder-root { min-height:100dvh; }
         .seder-canvas-wrap { width:100%; height:100%; min-height:100dvh; touch-action:none; }
-        .seder-subtitle-box { width:92%; max-width:700px; }
+        .seder-subtitle-box { width:92%; max-width:720px; box-shadow: 0 8px 40px rgba(0,0,0,0.45), 0 0 1px rgba(232,197,106,0.2) inset; }
         @media (max-width:640px){
           .seder-phase-pill { font-size:13px !important; padding:5px 12px !important; max-width:92vw; }
-          .seder-speaker-box { max-width:42vw; }
+          .seder-speaker-box { max-width:46vw; }
           .seder-subtitle-box { width:96% !important; padding:10px 14px !important; }
-          .seder-subtitle-he { font-size:15px !important; }
-          .seder-subtitle-en { font-size:12px !important; }
           .seder-controls { flex-wrap:wrap; padding:10px 8px calc(10px + env(safe-area-inset-bottom)) !important; gap:8px !important; }
           .seder-controls button, .seder-controls select { min-height:44px; min-width:44px; font-size:14px !important; touch-action:manipulation; }
         }
@@ -354,55 +485,136 @@ export default function SederPage() {
 
       <canvas ref={canvasRef} className="seder-canvas-wrap" style={{ display: 'block' }} />
 
+      <button
+        type="button"
+        onClick={() => setSettingsOpen(true)}
+        className="seder-glass-panel"
+        style={{
+          position: 'absolute',
+          top: 14,
+          right: 14,
+          zIndex: 30,
+          width: 46,
+          height: 46,
+          borderRadius: 12,
+          cursor: 'pointer',
+          color: 'var(--seder-gold)',
+          fontSize: 20,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          border: '1px solid rgba(232,197,106,0.2)',
+        }}
+        aria-label="Settings"
+      >
+        ⚙
+      </button>
+
       {/* Phase */}
-      {phase && <div className="seder-phase-pill" style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', background: 'rgba(12,9,6,0.85)', borderRadius: 10, padding: '6px 20px', border: '1px solid #3D342844', zIndex: 10 }}>
-        <div style={{ color: '#D4A017', fontSize: 16, fontWeight: 600, textAlign: 'center', letterSpacing: 1 }}>{phase}</div>
+      {phase && <div className="seder-phase-pill" style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', background: 'rgba(12,8,18,0.88)', borderRadius: 12, padding: '8px 22px', border: '1px solid rgba(232,197,106,0.15)', zIndex: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.35)' }}>
+        <div style={{ color: 'var(--seder-gold)', fontSize: 15, fontWeight: 600, textAlign: 'center', letterSpacing: '0.04em', fontFamily: 'var(--font-body)' }}>{phase}</div>
       </div>}
 
-      {/* Speaker */}
-      {speaker && <div className="seder-speaker-box" style={{ position: 'absolute', top: 16, left: 16, background: 'rgba(12,9,6,0.8)', borderRadius: 8, padding: '5px 12px', border: '1px solid #3D342844', zIndex: 10 }}>
-        <div style={{ color: '#7EC87E', fontSize: 10, letterSpacing: 1 }}>SPEAKING</div>
-        <div style={{ color: '#E8D5B7', fontSize: 14, fontWeight: 600 }}>{speakerName}</div>
-        {speakerRole && <div style={{ color: '#8B7355', fontSize: 10 }}>{speakerRole}</div>}
-      </div>}
+      {/* Speaker + agent */}
+      <div style={{ position: 'absolute', top: 16, left: 16, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 'min(280px, 46vw)' }}>
+        {speaker && (
+          <div className="seder-speaker-box seder-glass-panel" style={{ padding: '10px 14px', borderRadius: 12 }}>
+            <div style={{ color: '#8fd9a8', fontSize: 9, letterSpacing: '0.15em', fontWeight: 600 }}>SPEAKING</div>
+            <div style={{ color: '#E8D5B7', fontSize: 15, fontWeight: 600, fontFamily: 'var(--font-display)' }}>{speakerName}</div>
+            {speakerRole && <div style={{ color: '#8B7355', fontSize: 11, marginTop: 2 }}>{speakerRole}</div>}
+          </div>
+        )}
+        {agentThinking && prefs.useAI && (
+          <div className="seder-agent-orb seder-glass-panel" style={{ padding: '8px 12px', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 16 }}>✨</span>
+            <div>
+              <div style={{ color: 'var(--seder-gold)', fontSize: 10, letterSpacing: '0.12em' }}>AGENT</div>
+              <div style={{ color: '#b8a090', fontSize: 11 }}>Weaving a line…</div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Subtitles */}
       {(subtitle.he || subtitle.en) && (
-        <div className="seder-subtitle-box" style={{ position: 'absolute', bottom: 72, left: '50%', transform: 'translateX(-50%)', background: 'rgba(8,6,4,0.9)', borderRadius: 12, padding: '12px 20px', border: '1px solid #3D342822', backdropFilter: 'blur(8px)', zIndex: 10, animation: 'subtIn 0.3s ease' }}>
-          {showHe && subtitle.he && <p className="seder-subtitle-he" style={{ color: '#FAF0E6', fontSize: 17, lineHeight: 1.7, margin: 0, direction: 'rtl', textAlign: 'right', fontWeight: 300 }}>{subtitle.he}</p>}
-          {showEn && subtitle.en && <p className="seder-subtitle-en" style={{ color: showHe ? '#B8A88A' : '#FAF0E6', fontSize: showHe ? 13 : 16, lineHeight: 1.5, margin: showHe ? '6px 0 0' : 0, fontStyle: showHe ? 'italic' as const : 'normal' as const }}>{subtitle.en}</p>}
+        <div className="seder-subtitle-box" style={{ position: 'absolute', bottom: 80, left: '50%', transform: 'translateX(-50%)', background: 'rgba(10,6,14,0.92)', borderRadius: 14, padding: '14px 22px', border: '1px solid rgba(232,197,106,0.12)', backdropFilter: 'blur(12px)', zIndex: 10, animation: 'subtIn 0.35s ease' }}>
+          {showHe && subtitle.he && <p className="seder-subtitle-he" style={{ color: '#FAF0E6', fontSize: subFonts.he, lineHeight: 1.75, margin: 0, direction: 'rtl', textAlign: 'right', fontWeight: 300, fontFamily: 'var(--font-body)' }}>{subtitle.he}</p>}
+          {showEn && subtitle.en && <p className="seder-subtitle-en" style={{ color: showHe ? '#b0a090' : '#FAF0E6', fontSize: showHe ? subFonts.en : subFonts.he, lineHeight: 1.55, margin: showHe ? '8px 0 0' : 0, fontStyle: showHe ? 'italic' as const : 'normal' as const }}>{subtitle.en}</p>}
         </div>
       )}
 
       {/* Controls */}
-      <div className="seder-controls" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(8,6,4,0.92)', borderTop: '1px solid #1A1410', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 20, gap: 8 }}>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <button onClick={() => setPaused(p => !p)} style={{ ...bs, background: paused ? '#8B1A1A' : '#2A2118', minWidth: 36 }}>{paused ? '▶' : '⏸'}</button>
-          <select value={speed} onChange={e => setSpeed(+e.target.value)} style={{ background: '#2A2118', color: '#8B7355', border: '1px solid #3D3428', borderRadius: 6, padding: '4px 6px', fontSize: 11, cursor: 'pointer' }}>
+      <div className="seder-controls" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(180deg, transparent 0%, rgba(6,4,10,0.97) 28%)', borderTop: '1px solid rgba(232,197,106,0.08)', padding: '10px 12px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 20, gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button type="button" onClick={() => setPaused(p => !p)} style={{ ...bs, background: paused ? '#6b1d2a' : '#1e1610', minWidth: 44, minHeight: 40, color: '#d4c4b0' }}>{paused ? '▶' : '⏸'}</button>
+          <select value={speed} onChange={e => setSpeed(+e.target.value)} style={{ background: '#1e1610', color: 'var(--seder-gold-dim)', border: '1px solid rgba(232,197,106,0.2)', borderRadius: 8, padding: '8px 8px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
             <option value={0.5}>0.5×</option><option value={1}>1×</option><option value={1.5}>1.5×</option><option value={2}>2×</option><option value={3}>3×</option>
           </select>
         </div>
-        <div style={{ flex: 1, margin: '0 8px' }}>
-          <div style={{ height: 4, background: '#1A1410', borderRadius: 2, cursor: 'pointer' }} onClick={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); const p = (e.clientX - r.left) / r.width; directorRef.current?.skipTo(Math.floor(p * totalBeats)); }}>
-            <div style={{ height: 4, borderRadius: 2, background: '#D4A017', width: `${totalBeats ? (beatIdx / totalBeats) * 100 : 0}%`, transition: 'width 0.3s' }} />
+        <div style={{ flex: 1, margin: '0 8px', minWidth: 0 }}>
+          <div style={{ height: 6, background: 'rgba(0,0,0,0.4)', borderRadius: 4, cursor: 'pointer', overflow: 'hidden' }} onClick={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); const p = (e.clientX - r.left) / r.width; directorRef.current?.skipTo(Math.floor(p * totalBeats)); }}>
+            <div style={{ height: 6, borderRadius: 4, background: 'linear-gradient(90deg, #6b3a5c, var(--seder-gold))', width: `${totalBeats ? (beatIdx / totalBeats) * 100 : 0}%`, transition: 'width 0.35s ease' }} />
           </div>
-          <div style={{ color: '#5A4D3C', fontSize: 9, textAlign: 'center', marginTop: 2 }}>{beatIdx + 1}/{totalBeats}</div>
+          <div style={{ color: '#6a5a50', fontSize: 10, textAlign: 'center', marginTop: 4, letterSpacing: '0.06em' }}>{beatIdx + 1} / {totalBeats}</div>
         </div>
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          <button onClick={() => setShowHe(h => !h)} style={{ ...bs, background: showHe ? '#3A2A10' : '#1A1410', color: showHe ? '#D4A017' : '#5A4D3C', fontSize: 11 }}>עב</button>
-          <button onClick={() => setShowEn(e => !e)} style={{ ...bs, background: showEn ? '#3A2A10' : '#1A1410', color: showEn ? '#D4A017' : '#5A4D3C', fontSize: 11 }}>EN</button>
-          <button onClick={() => setAudioOn(a => !a)} style={{ ...bs, color: audioOn ? '#D4A017' : '#5A4D3C' }}>{audioOn ? '🔊' : '🔇'}</button>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <button type="button" onClick={() => setShowHe(h => !h)} style={{ ...bs, background: showHe ? '#2a1a10' : '#14100c', color: showHe ? 'var(--seder-gold)' : '#5a4a40', fontSize: 12 }}>עב</button>
+          <button type="button" onClick={() => setShowEn(e => !e)} style={{ ...bs, background: showEn ? '#2a1a10' : '#14100c', color: showEn ? 'var(--seder-gold)' : '#5a4a40', fontSize: 12 }}>EN</button>
+          <button type="button" onClick={() => setAudioOn(a => !a)} style={{ ...bs, color: audioOn ? 'var(--seder-gold)' : '#5a4a40', minWidth: 40 }}>{audioOn ? '🔊' : '🔇'}</button>
         </div>
       </div>
 
+      {settingsOpen && (
+        <div
+          role="dialog"
+          aria-modal
+          style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(4,2,8,0.82)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={() => setSettingsOpen(false)}
+        >
+          <div className="seder-glass-panel" style={{ maxWidth: 420, width: '100%', padding: 24 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', color: 'var(--seder-gold)', fontSize: 22, fontWeight: 500 }}>Settings</h2>
+              <button type="button" onClick={() => setSettingsOpen(false)} style={{ background: 'none', border: 'none', color: '#8a7a70', fontSize: 22, cursor: 'pointer' }}>×</button>
+            </div>
+            <p style={{ color: '#7a6a60', fontSize: 13, marginBottom: 16 }}>Changes apply live (camera follows on next frame). Profiles: edit markdown in <code style={{ color: '#9a8a80' }}>public/characters/</code>.</p>
+            <div style={{ color: 'var(--seder-gold-dim)', fontSize: 10, letterSpacing: '0.15em', marginBottom: 8 }}>TRADITION</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              {(['ashkenazi', 'sephardi'] as const).map(t => (
+                <button key={t} type="button" className="seder-setting-chip" data-active={prefs.tradition === t} onClick={() => patchPrefs({ tradition: t })}>{t === 'ashkenazi' ? 'Ashkenazi' : 'Sephardi'}</button>
+              ))}
+            </div>
+            <div style={{ color: 'var(--seder-gold-dim)', fontSize: 10, letterSpacing: '0.15em', marginBottom: 8 }}>VOICE</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              {(['en', 'he', 'both'] as const).map(v => (
+                <button key={v} type="button" className="seder-setting-chip" data-active={prefs.speakLang === v} onClick={() => patchPrefs({ speakLang: v })}>{v === 'en' ? 'English' : v === 'he' ? 'עברית' : 'Both'}</button>
+              ))}
+            </div>
+            <div style={{ color: 'var(--seder-gold-dim)', fontSize: 10, letterSpacing: '0.15em', marginBottom: 8 }}>AGENT</div>
+            <div style={{ marginBottom: 16 }}>
+              <button type="button" className="seder-setting-chip" data-active={prefs.useAI} onClick={() => patchPrefs({ useAI: !prefs.useAI })}>{prefs.useAI ? '✨ Claude on' : '📝 Scripted'}</button>
+            </div>
+            <div style={{ color: 'var(--seder-gold-dim)', fontSize: 10, letterSpacing: '0.15em', marginBottom: 8 }}>SUBTITLES</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              {(['sm', 'md', 'lg'] as const).map(s => (
+                <button key={s} type="button" className="seder-setting-chip" data-active={prefs.subtitleScale === s} onClick={() => patchPrefs({ subtitleScale: s })}>{s.toUpperCase()}</button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <button type="button" className="seder-setting-chip" data-active={prefs.cinematicCamera} onClick={() => patchPrefs({ cinematicCamera: !prefs.cinematicCamera })}>Cinematic camera</button>
+              <button type="button" className="seder-setting-chip" data-active={prefs.reducedMotion} onClick={() => patchPrefs({ reducedMotion: !prefs.reducedMotion })}>Calm motion</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Done */}
-      {done && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, animation: 'fadeIn 2s ease' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 56, marginBottom: 16 }}>🕯️✡️🕯️</div>
-          <h2 style={{ color: '#D4A017', fontSize: 32, fontWeight: 200, margin: '0 0 6px' }}>לְשָׁנָה הַבָּאָה בִּירוּשָׁלָיִם</h2>
-          <p style={{ color: '#FAF0E6', fontSize: 18, margin: '0 0 6px' }}>Next Year in Jerusalem</p>
-          <p style={{ color: '#8B7355', fontSize: 14, margin: '0 0 24px' }}>The Seder is complete. Chag Pesach Sameach!</p>
-          <button onClick={() => window.location.reload()} style={{ background: 'linear-gradient(135deg,#8B1A1A,#4A0A0A)', color: '#FAF0E6', border: 'none', borderRadius: 12, padding: '14px 36px', fontSize: 16, cursor: 'pointer', fontFamily: "'Crimson Pro',serif" }}>Watch Again</button>
+      {done && <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, rgba(40,20,50,0.5) 0%, rgba(4,2,8,0.95) 65%)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, animation: 'fadeIn 1.5s ease' }}>
+        <div style={{ textAlign: 'center', padding: 24 }}>
+          <div style={{ fontSize: 'clamp(40px,12vw,64px)', marginBottom: 20, filter: 'drop-shadow(0 0 24px rgba(232,197,106,0.3))' }}>🕯️✡️🕯️</div>
+          <h2 style={{ fontFamily: 'var(--font-display)', color: 'var(--seder-gold)', fontSize: 'clamp(1.5rem,5vw,2rem)', fontWeight: 500, margin: '0 0 8px' }}>לְשָׁנָה הַבָּאָה בִּירוּשָׁלָיִם</h2>
+          <p style={{ color: '#FAF0E6', fontSize: 18, margin: '0 0 8px' }}>Next Year in Jerusalem</p>
+          <p style={{ color: '#8B7355', fontSize: 14, margin: '0 0 28px' }}>The Seder is complete. Chag Pesach Sameach!</p>
+          <button type="button" className="seder-btn-primary" onClick={() => window.location.reload()}>Again</button>
         </div>
       </div>}
     </div>

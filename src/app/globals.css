@@ -1,0 +1,156 @@
+/* Agentic Seder — night / candlelight design tokens */
+:root {
+  --seder-bg-deep: #06040a;
+  --seder-bg-mid: #0f0a14;
+  --seder-gold: #e8c56a;
+  --seder-gold-dim: #9a7b3a;
+  --seder-ember: #c45c3a;
+  --seder-mist: rgba(232, 213, 183, 0.08);
+  --seder-glass: rgba(18, 12, 22, 0.72);
+  --seder-glow: 0 0 60px rgba(232, 197, 106, 0.15);
+  --font-display: "Cormorant Garamond", "Crimson Pro", Georgia, serif;
+  --font-body: "Crimson Pro", Georgia, serif;
+}
+
+@keyframes seder-float {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(-12px) scale(1.05);
+    opacity: 0.85;
+  }
+}
+
+@keyframes seder-shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+@keyframes seder-pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(232, 197, 106, 0.2), inset 0 0 30px rgba(255, 200, 120, 0.05);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(232, 197, 106, 0.35), inset 0 0 40px rgba(255, 220, 160, 0.08);
+  }
+}
+
+@keyframes seder-ember-rise {
+  0% {
+    transform: translateY(100%) translateX(0) scale(0.5);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(-120vh) translateX(20px) scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes seder-spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.seder-magical-bg {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(88, 56, 120, 0.35) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 60% at 80% 60%, rgba(196, 92, 58, 0.12) 0%, transparent 45%),
+    radial-gradient(ellipse 60% 50% at 10% 80%, rgba(60, 90, 140, 0.15) 0%, transparent 40%), linear-gradient(165deg, var(--seder-bg-deep) 0%, var(--seder-bg-mid) 45%, #0a080e 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.seder-ember-layer {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.seder-ember {
+  position: absolute;
+  bottom: -20px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffd89a 0%, #c45c3a 60%, transparent 100%);
+  opacity: 0.6;
+  animation: seder-ember-rise 12s ease-in infinite;
+}
+
+.seder-glass-panel {
+  background: var(--seder-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(232, 197, 106, 0.12);
+  border-radius: 16px;
+  box-shadow: var(--seder-glow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.seder-btn-primary {
+  font-family: var(--font-display);
+  background: linear-gradient(135deg, #6b1d2a 0%, #3d0f18 50%, #2a0a12 100%);
+  background-size: 200% auto;
+  color: #faf0e6;
+  border: 1px solid rgba(232, 140, 120, 0.35);
+  border-radius: 14px;
+  padding: 18px 48px;
+  font-size: 1.25rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 8px 32px rgba(100, 30, 40, 0.45), 0 0 0 1px rgba(0, 0, 0, 0.3) inset;
+}
+
+.seder-btn-primary:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 48px rgba(120, 40, 55, 0.55), 0 0 40px rgba(232, 197, 106, 0.12);
+}
+
+.seder-setting-chip {
+  font-family: var(--font-body);
+  background: rgba(20, 14, 28, 0.9);
+  border: 1px solid rgba(232, 197, 106, 0.15);
+  color: var(--seder-gold-dim);
+  border-radius: 10px;
+  padding: 10px 18px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.seder-setting-chip[data-active="true"] {
+  border-color: rgba(232, 197, 106, 0.55);
+  color: var(--seder-gold);
+  background: rgba(232, 197, 106, 0.1);
+  box-shadow: 0 0 24px rgba(232, 197, 106, 0.08);
+}
+
+.seder-agent-orb {
+  animation: seder-pulse-glow 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seder-ember,
+  .seder-agent-orb {
+    animation: none !important;
+  }
+}

@@ -8,9 +8,13 @@ export interface Reaction {
   he: string;
 }
 
+export type AgentActivityCallback = (active: boolean) => void;
+
 export class DialogueEngine {
   private profiles: Map<string, string> = new Map();
   private cache: Map<string, Reaction[]> = new Map();
+
+  constructor(private readonly onAgentActivity?: AgentActivityCallback) {}
 
   // Load all character markdown profiles
   async loadProfiles(characterIds: string[]): Promise<void> {
@@ -52,20 +56,25 @@ export class DialogueEngine {
 
     const reactions: Reaction[] = [];
 
-    for (const charId of selected) {
-      const profile = this.profiles.get(charId);
-      if (!profile) continue;
+    this.onAgentActivity?.(true);
+    try {
+      for (const charId of selected) {
+        const profile = this.profiles.get(charId);
+        if (!profile) continue;
 
-      try {
-        const reaction = await this.callAPI(context, profile, charId, phase);
-        if (reaction) reactions.push(reaction);
-      } catch (e) {
-        console.warn(`API call failed for ${charId}, skipping`);
+        try {
+          const reaction = await this.callAPI(context, profile, charId, phase);
+          if (reaction) reactions.push(reaction);
+        } catch (e) {
+          console.warn(`API call failed for ${charId}, skipping`);
+        }
       }
-    }
 
-    this.cache.set(key, reactions);
-    return reactions;
+      this.cache.set(key, reactions);
+      return reactions;
+    } finally {
+      this.onAgentActivity?.(false);
+    }
   }
 
   private async callAPI(
