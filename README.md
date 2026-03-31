@@ -95,14 +95,18 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Environment Variables (optional)
 
-For AI-generated dialogue, you need a Claude API key:
+For AI-generated dialogue, add an [Anthropic API key](https://console.anthropic.com/). The key stays **on the server** (Vercel env or `.env.local`); the browser calls `/api/dialogue`, which proxies to Claude.
 
 ```bash
-# .env.local
-NEXT_PUBLIC_ANTHROPIC_API_KEY=your_key_here
+# .env.local (local dev only — do not commit)
+cp .env.example .env.local
+# Edit .env.local:
+ANTHROPIC_API_KEY=your_key_here
 ```
 
-Without an API key, the app uses built-in fallback dialogue — still fun, just not AI-generated.
+**Vercel:** Project → Settings → Environment Variables → add `ANTHROPIC_API_KEY` for Production (and Preview if you want AI on preview URLs).
+
+Without a key, reaction beats use built-in fallback dialogue — still fun, just not AI-generated.
 
 ## 🔊 Audio
 

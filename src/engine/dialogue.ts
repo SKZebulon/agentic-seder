@@ -75,33 +75,20 @@ export class DialogueEngine {
     phase: string
   ): Promise<Reaction | null> {
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/dialogue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: `You generate short, natural dialogue for animated characters at a Passover Seder.
-You receive a character's personality profile (markdown) and what just happened.
-Generate ONE short reaction — 1-2 sentences max. It should feel like something a real person would say.
-It can be funny, touching, sarcastic, confused, or profound — whatever fits the character.
-Return ONLY a JSON object: {"en":"English line","he":"Hebrew line or empty string"}
-No markdown, no backticks, no explanation. Just the JSON object.
-If the character would speak Hebrew, put it in "he". If English, in "en". Can have both.
-Keep it SHORT and natural. Real people at dinner don't give speeches.`,
-          messages: [{
-            role: 'user',
-            content: `## Seder Phase\n${phase}\n\n## What Just Happened\n${context}\n\n## Character Profile\n${profile}\n\nGenerate ONE short, in-character reaction.`
-          }]
-        })
+        body: JSON.stringify({ context, profile, charId, phase }),
       });
 
-      const data = await response.json();
-      const text = data.content?.map((c: any) => c.text || '').join('') || '';
-      const cleaned = text.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(cleaned);
-      return { speaker: charId, en: parsed.en || '', he: parsed.he || '' };
-    } catch (e) {
+      if (!response.ok) return null;
+
+      const data = (await response.json()) as {
+        reaction?: { speaker: string; en: string; he: string };
+      };
+      if (!data.reaction) return null;
+      return data.reaction;
+    } catch {
       return null;
     }
   }
