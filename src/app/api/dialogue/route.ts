@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: 'user',
-          content: `## Seder Phase\n${phase}\n\n## What Just Happened\n${context}\n\n## Character Profile\n${profile}\n\nGenerate ONE short, in-character reaction.`,
+          content: `## Character\nYou are writing ONE spoken line for character id "${charId}" only. Obey the profile below; do not sound like a generic narrator.\n\n## Seder phase\n${phase}\n\n## What just happened\n${context}\n\n## Profile (follow this voice)\n${profile}\n\nGenerate ONE short, in-character reaction.`,
         },
       ],
     }),

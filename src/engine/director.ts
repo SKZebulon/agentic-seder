@@ -29,6 +29,13 @@ export class Director {
   private running: boolean = false;
   private useAI: boolean = true;
 
+  /** Call this instead of assigning `.paused` so Web Speech pauses/resumes with the UI. */
+  setPaused(p: boolean): void {
+    this.paused = p;
+    if (p) this.audio.pause();
+    else this.audio.resume();
+  }
+
   constructor(
     beats: Beat[],
     audio: AudioEngine,
@@ -195,8 +202,20 @@ export class Director {
     }
   }
 
-  private wait(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms / this.speed));
+  /** Respects pause: timers freeze while paused; pair with setPaused() which pauses TTS. */
+  private async wait(ms: number): Promise<void> {
+    const total = ms / this.speed;
+    const chunk = 50;
+    let elapsed = 0;
+    while (elapsed < total) {
+      while (this.paused && this.running) {
+        await new Promise<void>(r => setTimeout(r, 50));
+      }
+      if (!this.running) return;
+      const step = Math.min(chunk, total - elapsed);
+      await new Promise<void>(r => setTimeout(r, step));
+      elapsed += step;
+    }
   }
 
   skipTo(index: number): void {

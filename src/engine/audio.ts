@@ -60,12 +60,15 @@ export class AudioEngine {
       utterance.pitch = ch.pitch;
       utterance.rate = ch.rate;
 
-      utterance.onend = () => resolve();
-      utterance.onerror = () => resolve();
-
-      // Safety timeout — don't block forever
       const timeout = setTimeout(() => resolve(), (text.length * 80) + 5000);
-      utterance.onend = () => { clearTimeout(timeout); resolve(); };
+      utterance.onend = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
+      utterance.onerror = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
 
       this.synth.speak(utterance);
     });
@@ -76,10 +79,18 @@ export class AudioEngine {
   }
 
   pause(): void {
-    this.synth.pause();
+    try {
+      this.synth.pause();
+    } catch {
+      /* noop if nothing is speaking */
+    }
   }
 
   resume(): void {
-    this.synth.resume();
+    try {
+      this.synth.resume();
+    } catch {
+      /* noop */
+    }
   }
 }

@@ -273,7 +273,7 @@ export default function SederPage() {
   };
 
   // Sync pause/speed to director
-  useEffect(() => { if (directorRef.current) directorRef.current.paused = paused; }, [paused]);
+  useEffect(() => { if (directorRef.current) directorRef.current.setPaused(paused); }, [paused]);
   useEffect(() => { if (directorRef.current) directorRef.current.speed = speed; }, [speed]);
 
   const speakerName = speaker === 'all' ? 'Everyone' : charMap[speaker || '']?.name || '';

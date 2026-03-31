@@ -59,21 +59,23 @@ agentic-seder/
 └── README.md
 ```
 
-## 🎭 Character Profiles
+## 🎭 Character Profiles (personalities)
 
-Each character is defined by a **markdown file** that the AI reads to generate dialogue. Here's what makes them tick:
+**Where to edit:** `public/characters/*.md` — one markdown file per character. The AI reads the full file when generating a reaction line for that character.
 
-| Character | Personality | Why They're Funny |
-|-----------|------------|-------------------|
-| **Savta Esther** | Compares everything to her mother's Seder | "It's good. My mother's was better, but it's good." |
-| **Saba Yosef** | Falls asleep, denies it | "I wasn't sleeping! I was thinking with my eyes closed." |
-| **Dani** | Sarcastic teen, secretly moved | Gets caught singing Dayenu after eye-rolling all night |
-| **Noa** | 8 years old, HUNGRY | Negotiates iPad for Afikoman, settles for ice cream |
-| **Eli** | 6 years old, everything is new | 100% certain he saw Elijah drink from the cup |
-| **Uncle Moshe** | SINGS AT MAXIMUM VOLUME | Other characters actively try to out-sing him |
-| **Ben** | Non-Jewish friend, first Seder | "So it's like... religious hide and seek?" |
+**How it works:** At runtime the app fetches e.g. `/characters/mother.md`. Filenames are fixed (`leader.md`, `mother.md`, `child-wicked.md`, …); internal IDs (`mother`, `child_wicked`, …) map to those files in `src/engine/dialogue.ts`. After you save a file, **refresh the page** (local dev) or **redeploy** (Vercel) so browsers get the new text.
 
-**Edit the markdown files to match YOUR family.** Change names, ages, quirks, personality traits — the AI adapts.
+**Names on screen:** Display names and 3D bodies come from `src/data/characters.ts` (`name`, `role`, colors). To rename “Shira” → your name, edit **`characters.ts`** and the matching `.md` file so story and UI match.
+
+**Writing good profiles:** The templates use sections like *Who you are*, *How you sound*, *Example lines*, and *Never* — concrete beats and sample dialogue help the model stay in voice. Generic bullet lists produce generic lines.
+
+| File | Character |
+|------|-----------|
+| `leader.md` | Rabbi / leader |
+| `mother.md`, `father.md` | Parents |
+| `savta.md`, `saba.md` | Grandparents |
+| `child-youngest.md`, `child-wise.md`, `child-wicked.md`, `child-simple.md` | Four children slots |
+| `uncle.md`, `aunt.md`, `guest.md` | Extended family + guest |
 
 ## 🕎 Ashkenazi / Sephardi
 
