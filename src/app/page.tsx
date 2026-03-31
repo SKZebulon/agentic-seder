@@ -36,8 +36,8 @@ function place<T extends THREE.Object3D>(obj: T, x: number, y: number, z: number
 function buildSederScene(canvas: HTMLCanvasElement) {
   const w = canvas.clientWidth, h = canvas.clientHeight;
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0C0906);
-  scene.fog = new THREE.FogExp2(0x0C0906, 0.035);
+  scene.background = new THREE.Color(0x18120E);
+  scene.fog = new THREE.FogExp2(0x14100C, 0.018);
   const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 100);
   camera.position.set(0, 7, 10);
   camera.lookAt(0, 1, 0);
@@ -45,13 +45,16 @@ function buildSederScene(canvas: HTMLCanvasElement) {
   renderer.setSize(w, h);
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
 
   // Floor
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshStandardMaterial({ color: 0x1A1208, roughness: 0.9 }));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshStandardMaterial({ color: 0x2A2218, roughness: 0.88 }));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
 
   // Wall
-  scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(30, 10), new THREE.MeshStandardMaterial({ color: 0x1E1610 })), 0, 5, -8));
+  scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(30, 10), new THREE.MeshStandardMaterial({ color: 0x2C241C, roughness: 0.95 })), 0, 5, -8));
 
   // Table
   const tMat = new THREE.MeshStandardMaterial({ color: 0x3D2817, roughness: 0.7 });
@@ -77,17 +80,19 @@ function buildSederScene(canvas: HTMLCanvasElement) {
     scene.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.22, 8), new THREE.MeshStandardMaterial({ color: 0xFFF8DC })), cx, 1.47, cz));
     const f = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.05, 6), new THREE.MeshBasicMaterial({ color: 0xFFAA33 }));
     f.position.set(cx, 1.62, cz); scene.add(f); candles.push(f);
-    const cl = new THREE.PointLight(0xFFAA33, 0.7, 8); cl.position.set(cx, 1.65, cz); cl.castShadow = true; scene.add(cl); candles.push(cl);
+    const cl = new THREE.PointLight(0xFFCC66, 1.4, 18, 1.8); cl.position.set(cx, 1.65, cz); cl.castShadow = true; scene.add(cl); candles.push(cl);
   });
 
   // Elijah cup
   scene.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.035, 0.16, 10), new THREE.MeshStandardMaterial({ color: 0xDAA520, metalness: 0.7, roughness: 0.3 })), 0, 1.18, -0.28));
 
-  // Lighting
-  scene.add(new THREE.AmbientLight(0x1A1008, 0.4));
-  const over = new THREE.PointLight(0xFFEECC, 0.6, 20); over.position.set(0, 6, 0); over.castShadow = true; scene.add(over);
-  scene.add(place(new THREE.PointLight(0xFF8844, 0.3, 12), -5, 3, -3));
-  scene.add(place(new THREE.PointLight(0xFF8844, 0.3, 12), 5, 3, -3));
+  // Lighting — warm room fill + table so faces aren’t lost in shadow
+  scene.add(new THREE.AmbientLight(0xE8D4C4, 0.52));
+  scene.add(new THREE.HemisphereLight(0xC4B4A8, 0x2A2018, 0.45));
+  const over = new THREE.PointLight(0xFFF5E6, 1.25, 35, 1.2); over.position.set(0, 7.5, 2); over.castShadow = true; scene.add(over);
+  scene.add(place(new THREE.PointLight(0xFFD4A8, 0.55, 22, 1.5), -6, 4.5, 4));
+  scene.add(place(new THREE.PointLight(0xFFD4A8, 0.55, 22, 1.5), 6, 4.5, 4));
+  scene.add(place(new THREE.PointLight(0xFFE8CC, 0.4, 16, 1.6), 0, 2.8, 5));
 
   // Characters
   const chars: Record<string, CharMesh> = {};
@@ -322,18 +327,40 @@ export default function SederPage() {
 
   // ── MAIN 3D VIEW ──
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#0C0906', overflow: 'hidden' }}>
-      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes subtIn{from{opacity:0}to{opacity:1}}`}</style>
+    <div className="seder-root" style={{
+      width: '100%',
+      minHeight: '100vh',
+      position: 'relative',
+      background: '#0C0906',
+      overflow: 'hidden',
+      paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+    }}>
+      <style>{`
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes subtIn{from{opacity:0}to{opacity:1}}
+        .seder-root { min-height:100dvh; }
+        .seder-canvas-wrap { width:100%; height:100%; min-height:100dvh; touch-action:none; }
+        .seder-subtitle-box { width:92%; max-width:700px; }
+        @media (max-width:640px){
+          .seder-phase-pill { font-size:13px !important; padding:5px 12px !important; max-width:92vw; }
+          .seder-speaker-box { max-width:42vw; }
+          .seder-subtitle-box { width:96% !important; padding:10px 14px !important; }
+          .seder-subtitle-he { font-size:15px !important; }
+          .seder-subtitle-en { font-size:12px !important; }
+          .seder-controls { flex-wrap:wrap; padding:10px 8px calc(10px + env(safe-area-inset-bottom)) !important; gap:8px !important; }
+          .seder-controls button, .seder-controls select { min-height:44px; min-width:44px; font-size:14px !important; touch-action:manipulation; }
+        }
+      `}</style>
 
-      <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+      <canvas ref={canvasRef} className="seder-canvas-wrap" style={{ display: 'block' }} />
 
       {/* Phase */}
-      {phase && <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', background: 'rgba(12,9,6,0.85)', borderRadius: 10, padding: '6px 20px', border: '1px solid #3D342844', zIndex: 10 }}>
+      {phase && <div className="seder-phase-pill" style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', background: 'rgba(12,9,6,0.85)', borderRadius: 10, padding: '6px 20px', border: '1px solid #3D342844', zIndex: 10 }}>
         <div style={{ color: '#D4A017', fontSize: 16, fontWeight: 600, textAlign: 'center', letterSpacing: 1 }}>{phase}</div>
       </div>}
 
       {/* Speaker */}
-      {speaker && <div style={{ position: 'absolute', top: 16, left: 16, background: 'rgba(12,9,6,0.8)', borderRadius: 8, padding: '5px 12px', border: '1px solid #3D342844', zIndex: 10 }}>
+      {speaker && <div className="seder-speaker-box" style={{ position: 'absolute', top: 16, left: 16, background: 'rgba(12,9,6,0.8)', borderRadius: 8, padding: '5px 12px', border: '1px solid #3D342844', zIndex: 10 }}>
         <div style={{ color: '#7EC87E', fontSize: 10, letterSpacing: 1 }}>SPEAKING</div>
         <div style={{ color: '#E8D5B7', fontSize: 14, fontWeight: 600 }}>{speakerName}</div>
         {speakerRole && <div style={{ color: '#8B7355', fontSize: 10 }}>{speakerRole}</div>}
@@ -341,14 +368,14 @@ export default function SederPage() {
 
       {/* Subtitles */}
       {(subtitle.he || subtitle.en) && (
-        <div style={{ position: 'absolute', bottom: 64, left: '50%', transform: 'translateX(-50%)', width: '92%', maxWidth: 700, background: 'rgba(8,6,4,0.9)', borderRadius: 12, padding: '12px 20px', border: '1px solid #3D342822', backdropFilter: 'blur(8px)', zIndex: 10, animation: 'subtIn 0.3s ease' }}>
-          {showHe && subtitle.he && <p style={{ color: '#FAF0E6', fontSize: 17, lineHeight: 1.7, margin: 0, direction: 'rtl', textAlign: 'right', fontWeight: 300 }}>{subtitle.he}</p>}
-          {showEn && subtitle.en && <p style={{ color: showHe ? '#B8A88A' : '#FAF0E6', fontSize: showHe ? 13 : 16, lineHeight: 1.5, margin: showHe ? '6px 0 0' : 0, fontStyle: showHe ? 'italic' as const : 'normal' as const }}>{subtitle.en}</p>}
+        <div className="seder-subtitle-box" style={{ position: 'absolute', bottom: 72, left: '50%', transform: 'translateX(-50%)', background: 'rgba(8,6,4,0.9)', borderRadius: 12, padding: '12px 20px', border: '1px solid #3D342822', backdropFilter: 'blur(8px)', zIndex: 10, animation: 'subtIn 0.3s ease' }}>
+          {showHe && subtitle.he && <p className="seder-subtitle-he" style={{ color: '#FAF0E6', fontSize: 17, lineHeight: 1.7, margin: 0, direction: 'rtl', textAlign: 'right', fontWeight: 300 }}>{subtitle.he}</p>}
+          {showEn && subtitle.en && <p className="seder-subtitle-en" style={{ color: showHe ? '#B8A88A' : '#FAF0E6', fontSize: showHe ? 13 : 16, lineHeight: 1.5, margin: showHe ? '6px 0 0' : 0, fontStyle: showHe ? 'italic' as const : 'normal' as const }}>{subtitle.en}</p>}
         </div>
       )}
 
       {/* Controls */}
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(8,6,4,0.92)', borderTop: '1px solid #1A1410', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 20, gap: 8 }}>
+      <div className="seder-controls" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(8,6,4,0.92)', borderTop: '1px solid #1A1410', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 20, gap: 8 }}>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <button onClick={() => setPaused(p => !p)} style={{ ...bs, background: paused ? '#8B1A1A' : '#2A2118', minWidth: 36 }}>{paused ? '▶' : '⏸'}</button>
           <select value={speed} onChange={e => setSpeed(+e.target.value)} style={{ background: '#2A2118', color: '#8B7355', border: '1px solid #3D3428', borderRadius: 6, padding: '4px 6px', fontSize: 11, cursor: 'pointer' }}>

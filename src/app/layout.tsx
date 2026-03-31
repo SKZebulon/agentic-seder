@@ -1,4 +1,12 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
+  themeColor: '#0C0906',
+};
 
 export const metadata: Metadata = {
   title: 'The Agentic Seder — AI-Powered Passover Experience',
