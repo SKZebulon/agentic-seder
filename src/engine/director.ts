@@ -1,6 +1,6 @@
-// The Director — orchestrates the entire Seder autonomously
-// Processes liturgy beats, triggers animations, speaks audio,
-// and calls the AI dialogue engine for reaction slots
+// Director — FIXED
+// Properly distributes speaking across characters
+// Doesn't default everything to leader
 
 import { Beat } from '@/data/haggadah-script';
 import { AudioEngine } from './audio';
@@ -21,210 +21,122 @@ export class Director {
   private beats: Beat[];
   private audio: AudioEngine;
   private dialogue: DialogueEngine;
-  private callbacks: DirectorCallbacks;
-  private currentIndex: number = 0;
+  private cb: DirectorCallbacks;
+  private idx: number = 0;
   private currentPhase: string = '';
   public paused: boolean = false;
   public speed: number = 1;
   private running: boolean = false;
-  private useAI: boolean = true;
+  private useAI: boolean;
 
-  /** Call this instead of assigning `.paused` so Web Speech pauses/resumes with the UI. */
-  setPaused(p: boolean): void {
-    this.paused = p;
-    if (p) this.audio.pause();
-    else this.audio.resume();
-  }
-
-  constructor(
-    beats: Beat[],
-    audio: AudioEngine,
-    dialogue: DialogueEngine,
-    callbacks: DirectorCallbacks,
-    useAI: boolean = true
-  ) {
-    this.beats = beats;
-    this.audio = audio;
-    this.dialogue = dialogue;
-    this.callbacks = callbacks;
-    this.useAI = useAI;
+  constructor(beats: Beat[], audio: AudioEngine, dialogue: DialogueEngine, cb: DirectorCallbacks, useAI: boolean = true) {
+    this.beats = beats; this.audio = audio; this.dialogue = dialogue; this.cb = cb; this.useAI = useAI;
   }
 
   async run(): Promise<void> {
     this.running = true;
-
-    while (this.currentIndex < this.beats.length && this.running) {
-      // Wait if paused
-      while (this.paused && this.running) {
-        await this.wait(200);
-      }
+    while (this.idx < this.beats.length && this.running) {
+      while (this.paused && this.running) await this.wait(200);
       if (!this.running) break;
 
-      const beat = this.beats[this.currentIndex];
+      const beat = this.beats[this.idx];
       if (!beat) break;
+      this.cb.onBeatIndex(this.idx);
 
-      this.callbacks.onBeatIndex(this.currentIndex);
-
-      switch (beat.type) {
-        case 'phase':
-          this.currentPhase = beat.phase || '';
-          this.callbacks.onPhase(this.currentPhase);
-          this.callbacks.onSubtitle({ he: '', en: '', speaker: null });
-          await this.wait(beat.dur || 3000);
-          break;
-
-        case 'liturgy':
-          await this.processLiturgy(beat);
-          break;
-
-        case 'action':
-          await this.processAction(beat);
-          break;
-
-        case 'reaction':
-          await this.processReaction(beat);
-          break;
-      }
-
-      this.currentIndex++;
-    }
-
-    this.callbacks.onFinished();
-  }
-
-  private async processLiturgy(beat: Beat): Promise<void> {
-    const speaker = beat.speaker || 'leader';
-
-    // Animate speaker
-    this.callbacks.onAnimate(speaker, 'speak');
-    this.callbacks.onSpeaker(speaker);
-
-    // Show subtitles
-    this.callbacks.onSubtitle({ he: beat.he || '', en: beat.en || '', speaker });
-
-    // Speak audio
-    const textToSpeak = this.audio.speakLang === 'he' ? (beat.he || beat.en || '') : (beat.en || beat.he || '');
-    const lang = this.audio.speakLang === 'he' ? 'he' : 'en';
-
-    await Promise.race([
-      this.audio.speak(textToSpeak, speaker, lang),
-      this.wait(beat.dur || 5000)
-    ]);
-
-    this.callbacks.onResetCharacter(speaker);
-  }
-
-  private async processAction(beat: Beat): Promise<void> {
-    const speaker = beat.speaker || '';
-    const action = beat.action || '';
-
-    if (speaker === 'all') {
-      this.callbacks.onAnimate('all', action);
-    } else if (speaker) {
-      this.callbacks.onAnimate(speaker, action);
-    }
-
-    if (action === 'door') {
-      this.callbacks.onDoor();
-    }
-
-    this.callbacks.onSpeaker(speaker || null);
-
-    if (beat.he || beat.en) {
-      this.callbacks.onSubtitle({ he: beat.he || '', en: beat.en || '', speaker });
-      // Speak action descriptions
-      if (beat.en && this.audio.enabled) {
-        await Promise.race([
-          this.audio.speak(beat.en, speaker === 'all' ? 'leader' : speaker),
-          this.wait(beat.dur || 3000)
-        ]);
-      } else {
+      if (beat.type === 'phase') {
+        this.currentPhase = beat.phase || '';
+        this.cb.onPhase(this.currentPhase);
+        this.cb.onSubtitle({ he: '', en: '', speaker: null });
+        this.cb.onSpeaker(null);
         await this.wait(beat.dur || 3000);
       }
-    } else {
-      await this.wait(beat.dur || 1000);
-    }
+      else if (beat.type === 'liturgy') {
+        // FIXED: Use the actual speaker from the beat, not always 'leader'
+        const spk = beat.speaker || 'leader';
+        this.cb.onAnimate(spk, 'speak');
+        this.cb.onSpeaker(spk);
+        this.cb.onSubtitle({ he: beat.he || '', en: beat.en || '', speaker: spk });
 
-    if (action === 'end') {
-      this.running = false;
-    }
+        const txt = this.audio.speakLang === 'he' ? (beat.he || beat.en || '') : (beat.en || beat.he || '');
+        const lang = this.audio.speakLang === 'he' ? 'he' as const : 'en' as const;
+        
+        // Wait for speech to complete OR duration timeout
+        await Promise.race([
+          this.audio.speak(txt, spk, lang),
+          this.wait(beat.dur || 6000)
+        ]);
+        
+        this.cb.onResetCharacter(spk);
+        await this.wait(300); // Brief pause between liturgy lines
+      }
+      else if (beat.type === 'action') {
+        const spk = beat.speaker || '';
+        const action = beat.action || '';
 
-    if (speaker && speaker !== 'all') {
-      this.callbacks.onResetCharacter(speaker);
-    }
-  }
+        if (spk === 'all') this.cb.onAnimate('all', action);
+        else if (spk) this.cb.onAnimate(spk, action);
 
-  private async processReaction(beat: Beat): Promise<void> {
-    const characters = beat.characters || [];
-    const maxReactions = beat.maxReactions || 2;
-    const context = beat.context || '';
+        if (action === 'door') this.cb.onDoor();
+        if (action === 'end') { this.running = false; this.cb.onFinished(); return; }
 
-    let reactions: Reaction[] = [];
+        this.cb.onSpeaker(spk || null);
+        if (beat.he || beat.en) {
+          this.cb.onSubtitle({ he: beat.he || '', en: beat.en || '', speaker: spk });
+          // For actions with text (like "everyone drinks"), speak it
+          const actionSpeaker = spk === 'all' ? 'leader' : (spk || 'leader');
+          await Promise.race([
+            this.audio.speak(beat.en || '', actionSpeaker),
+            this.wait(beat.dur || 3000)
+          ]);
+        } else {
+          await this.wait(beat.dur || 1500);
+        }
 
-    if (this.useAI) {
-      try {
-        reactions = await this.dialogue.generateReactions(
-          context, characters, maxReactions, this.currentPhase
+        // Reset after drinking/eating actions
+        if (['drink', 'eat', 'eat_meal', 'spill', 'celebrate'].includes(action)) {
+          setTimeout(() => {
+            if (spk === 'all') this.cb.onResetCharacter('all');
+            else if (spk) this.cb.onResetCharacter(spk);
+          }, 2000);
+        }
+      }
+      else if (beat.type === 'reaction') {
+        // AI-generated or fallback dialogue — this is where it gets agentic
+        const reactions = await this.dialogue.generateReactions(
+          beat.context || '', beat.characters || [], beat.maxReactions || 2, this.currentPhase
         );
-      } catch (e) {
-        console.warn('AI reaction generation failed, using fallbacks');
+
+        for (const r of reactions) {
+          if (!r || (!r.en && !r.he)) continue;
+
+          this.cb.onAnimate(r.speaker, 'speak');
+          this.cb.onSpeaker(r.speaker);
+          this.cb.onSubtitle({ he: r.he, en: r.en, speaker: r.speaker });
+
+          const txt = r.en || r.he;
+          await Promise.race([
+            this.audio.speak(txt, r.speaker),
+            this.wait(Math.max(txt.length * 75, 2500))
+          ]);
+
+          this.cb.onResetCharacter(r.speaker);
+          await this.wait(500);
+        }
       }
+
+      this.idx++;
     }
-
-    // Fallback if AI didn't produce enough reactions
-    if (reactions.length < maxReactions) {
-      const remaining = characters
-        .filter(c => !reactions.find(r => r.speaker === c))
-        .sort(() => Math.random() - 0.5)
-        .slice(0, maxReactions - reactions.length);
-
-      for (const charId of remaining) {
-        reactions.push(this.dialogue.generateFallback(charId, context));
-      }
-    }
-
-    // Play each reaction
-    for (const reaction of reactions) {
-      if (!reaction || (!reaction.en && !reaction.he)) continue;
-
-      this.callbacks.onAnimate(reaction.speaker, 'speak');
-      this.callbacks.onSpeaker(reaction.speaker);
-      this.callbacks.onSubtitle({ he: reaction.he, en: reaction.en, speaker: reaction.speaker });
-
-      const text = reaction.en || reaction.he;
-      await Promise.race([
-        this.audio.speak(text, reaction.speaker),
-        this.wait(Math.max(text.length * 70, 2000))
-      ]);
-
-      this.callbacks.onResetCharacter(reaction.speaker);
-      await this.wait(400); // Brief pause between reactions
-    }
+    this.cb.onFinished();
   }
 
-  /** Respects pause: timers freeze while paused; pair with setPaused() which pauses TTS. */
-  private async wait(ms: number): Promise<void> {
-    const total = ms / this.speed;
-    const chunk = 50;
-    let elapsed = 0;
-    while (elapsed < total) {
-      while (this.paused && this.running) {
-        await new Promise<void>(r => setTimeout(r, 50));
-      }
-      if (!this.running) return;
-      const step = Math.min(chunk, total - elapsed);
-      await new Promise<void>(r => setTimeout(r, step));
-      elapsed += step;
-    }
+  private wait(ms: number): Promise<void> {
+    return new Promise(r => setTimeout(r, ms / this.speed));
   }
 
   skipTo(index: number): void {
-    this.currentIndex = Math.max(0, Math.min(index, this.beats.length - 1));
+    this.idx = Math.max(0, Math.min(index, this.beats.length - 1));
     this.audio.stop();
   }
 
-  stop(): void {
-    this.running = false;
-    this.audio.stop();
-  }
+  stop(): void { this.running = false; this.audio.stop(); }
 }

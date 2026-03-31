@@ -1,6 +1,10 @@
 export type Tradition = 'ashkenazi' | 'sephardi';
 export type SpeakLang = 'en' | 'he' | 'both';
 export type SubtitleScale = 'sm' | 'md' | 'lg';
+/** Guides Claude’s tone for reactions */
+export type SederMood = 'solemn' | 'balanced' | 'playful';
+/** Browser = free local; Google = neural TTS via /api/tts (needs API key) */
+export type VoiceMode = 'browser' | 'google';
 
 export interface SederPrefs {
   tradition: Tradition;
@@ -9,6 +13,10 @@ export interface SederPrefs {
   subtitleScale: SubtitleScale;
   cinematicCamera: boolean;
   reducedMotion: boolean;
+  mood: SederMood;
+  voiceMode: VoiceMode;
+  /** Extra occasional reaction line — more “alive” table */
+  tableChatter: boolean;
 }
 
 const KEY = 'agentic-seder-prefs-v1';
@@ -20,6 +28,9 @@ export const defaultPrefs: SederPrefs = {
   subtitleScale: 'md',
   cinematicCamera: true,
   reducedMotion: false,
+  mood: 'balanced',
+  voiceMode: 'browser',
+  tableChatter: true,
 };
 
 export function loadPrefs(): SederPrefs {

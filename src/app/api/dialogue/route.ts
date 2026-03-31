@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
   }
 
-  const { context, profile, charId, phase } = body as Record<string, unknown>;
+  const { context, profile, charId, phase, mood } = body as Record<string, unknown>;
   if (
     typeof context !== 'string' ||
     typeof profile !== 'string' ||
@@ -43,6 +43,11 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+
+  const moodLine =
+    typeof mood === 'string'
+      ? `\n## Mood for this line\nThe table’s emotional temperature is: **${mood}** (solemn = fewer jokes; playful = wit welcome; balanced = natural).`
+      : '';
 
   if (profile.length > 80_000 || context.length > 20_000) {
     return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
@@ -62,7 +67,7 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: 'user',
-          content: `## Character\nYou are writing ONE spoken line for character id "${charId}" only. Obey the profile below; do not sound like a generic narrator.\n\n## Seder phase\n${phase}\n\n## What just happened\n${context}\n\n## Profile (follow this voice)\n${profile}\n\nGenerate ONE short, in-character reaction.`,
+          content: `## Character\nYou are writing ONE spoken line for character id "${charId}" only. Obey the profile below; do not sound like a generic narrator.${moodLine}\n\n## Seder phase\n${phase}\n\n## What just happened\n${context}\n\n## Profile (follow this voice)\n${profile}\n\nGenerate ONE short, in-character reaction.`,
         },
       ],
     }),

@@ -7,26 +7,17 @@ import { buildScript } from '@/data/haggadah-script';
 import { AudioEngine } from '@/engine/audio';
 import { DialogueEngine } from '@/engine/dialogue';
 import { Director } from '@/engine/director';
-import {
-  defaultPrefs,
-  loadPrefs,
-  savePrefs,
-  subtitleFontPx,
-  type SederPrefs,
-} from '@/lib/seder-settings';
+import { buildCharacter, buildChair, BuiltCharacter } from '@/components/CharacterBuilder';
 
 // ═══════════════════════════════════════════════════════════════
-// 3D SCENE BUILDER
+// 3D SCENE — COMPLETELY REBUILT
+// Rectangular table, characters in chairs AROUND the table,
+// proper room, visible food, warm lighting
 // ═══════════════════════════════════════════════════════════════
 
 interface CharMesh {
+  built: BuiltCharacter;
   group: THREE.Group;
-  body: THREE.Mesh;
-  head: THREE.Mesh;
-  lArm: THREE.Mesh;
-  rArm: THREE.Mesh;
-  baseY: number;
-  headY: number;
   standing: boolean;
   speaking: boolean;
   celebrating: boolean;
@@ -34,160 +25,201 @@ interface CharMesh {
   phase: number;
 }
 
-/** Newer Three.js marks `position` read-only; Object.assign(mesh, { position }) throws. */
-function place<T extends THREE.Object3D>(obj: T, x: number, y: number, z: number): T {
-  obj.position.set(x, y, z);
-  return obj;
-}
-
-function buildSederScene(
-  canvas: HTMLCanvasElement,
-  opts?: { cinematic?: boolean; reducedMotion?: boolean }
-) {
-  const cinematic = opts?.cinematic !== false;
-  const reducedMotion = opts?.reducedMotion === true;
+function buildScene(canvas: HTMLCanvasElement) {
   const w = canvas.clientWidth, h = canvas.clientHeight;
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a0614);
-  scene.fog = new THREE.FogExp2(0x06020c, 0.014);
-  const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 100);
-  camera.position.set(0, 7, 10);
-  camera.lookAt(0, 1, 0);
+  scene.background = new THREE.Color(0x100D08);
+
+  const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
+  camera.position.set(0, 6, 9);
+  camera.lookAt(0, 0.8, 0);
+
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setSize(w, h);
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.15;
+  renderer.toneMappingExposure = 0.8;
 
-  // Floor
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshStandardMaterial({ color: 0x2A2218, roughness: 0.88 }));
+  // ── ROOM ──
+  // Floor — warm wood
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x2A1E10, roughness: 0.85 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), floorMat);
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
 
-  // Wall
-  scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(30, 10), new THREE.MeshStandardMaterial({ color: 0x2C241C, roughness: 0.95 })), 0, 5, -8));
+  // Walls
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x1E180F, roughness: 0.9 });
+  const backWall = new THREE.Mesh(new THREE.PlaneGeometry(16, 6), wallMat);
+  backWall.position.set(0, 3, -6); scene.add(backWall);
+  const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(16, 6), wallMat);
+  leftWall.position.set(-8, 3, -0); leftWall.rotation.y = Math.PI / 2; scene.add(leftWall);
+  const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(16, 6), wallMat);
+  rightWall.position.set(8, 3, 0); rightWall.rotation.y = -Math.PI / 2; scene.add(rightWall);
 
-  // Table
-  const tMat = new THREE.MeshStandardMaterial({ color: 0x3D2817, roughness: 0.7 });
-  const table = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 3.5, 0.12, 32), tMat);
-  table.position.y = 1; table.scale.set(1.3, 1, 1); table.castShadow = true; table.receiveShadow = true; scene.add(table);
-  for (let i = 0; i < 4; i++) { const a = (i / 4) * Math.PI * 2 + Math.PI / 4; scene.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1, 6), tMat), Math.cos(a) * 2.8, 0.5, Math.sin(a) * 2.2)); }
+  // ── TABLE — Long rectangle, like a real dining table ──
+  const tableMat = new THREE.MeshStandardMaterial({ color: 0x4A3018, roughness: 0.6, metalness: 0.05 });
+  const tableTop = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.1, 2.8), tableMat);
+  tableTop.position.set(0, 0.75, 0); tableTop.castShadow = true; tableTop.receiveShadow = true; scene.add(tableTop);
 
-  // Tablecloth
-  const cloth = new THREE.Mesh(new THREE.RingGeometry(3.2, 4.6, 32), new THREE.MeshStandardMaterial({ color: 0xFAF0E6, side: THREE.DoubleSide }));
-  cloth.rotation.x = -Math.PI / 2; cloth.position.y = 1.07; cloth.scale.set(1.3, 1, 1); scene.add(cloth);
+  // Table legs
+  for (const [lx, lz] of [[-2.5, -1.2], [2.5, -1.2], [-2.5, 1.2], [2.5, 1.2]]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.75, 0.1), tableMat);
+    leg.position.set(lx, 0.375, lz); leg.castShadow = true; scene.add(leg);
+  }
 
-  // Seder plate
-  scene.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.03, 20), new THREE.MeshStandardMaterial({ color: 0xC0A080, metalness: 0.3 })), 0, 1.1, 0));
-  [0x4A7A3A, 0x8B4513, 0xF5DEB3, 0xFFFFE0, 0x654321, 0x4A7A3A].forEach((c, i) => { const a = (i / 6) * Math.PI * 2; scene.add(place(new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshStandardMaterial({ color: c })), Math.cos(a) * 0.28, 1.14, Math.sin(a) * 0.28)); });
+  // ── TABLECLOTH — white cloth draped over the table ──
+  const clothMat = new THREE.MeshStandardMaterial({ color: 0xF5F0E0, roughness: 0.8 });
+  const cloth = new THREE.Mesh(new THREE.BoxGeometry(5.7, 0.02, 3.0), clothMat);
+  cloth.position.set(0, 0.81, 0); scene.add(cloth);
 
-  // Matzah stack
-  for (let i = 0; i < 3; i++) scene.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.015, 12), new THREE.MeshStandardMaterial({ color: 0xD2B48C, roughness: 0.9 })), -0.6, 1.1 + i * 0.02, 0.3));
+  // ── TABLE ITEMS ──
+  // Seder plate — center
+  const plateMat = new THREE.MeshStandardMaterial({ color: 0xC0A070, metalness: 0.3, roughness: 0.5 });
+  const sederPlate = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.03, 20), plateMat);
+  sederPlate.position.set(0, 0.84, 0); scene.add(sederPlate);
 
-  // Candles
-  const candles: THREE.Object3D[] = [];
-  [[-0.25, 0, -0.55], [0.25, 0, -0.55]].forEach(([cx, , cz]) => {
-    scene.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.28, 8), new THREE.MeshStandardMaterial({ color: 0xC0C0C0, metalness: 0.8 })), cx, 1.24, cz));
-    scene.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.22, 8), new THREE.MeshStandardMaterial({ color: 0xFFF8DC })), cx, 1.47, cz));
-    const f = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.05, 6), new THREE.MeshBasicMaterial({ color: 0xFFAA33 }));
-    f.position.set(cx, 1.62, cz);
-    f.userData.isFlame = true;
-    scene.add(f); candles.push(f);
-    const cl = new THREE.PointLight(0xFFCC66, 1.4, 18, 1.8); cl.position.set(cx, 1.65, cz); cl.castShadow = true;
-    cl.userData.isCandleLight = true;
-    scene.add(cl); candles.push(cl);
+  // Items on seder plate
+  const itemCols = [0x4A7A3A, 0x8B4513, 0xF5DEB3, 0xFFE4B5, 0x654321, 0x4A7A3A];
+  itemCols.forEach((c, i) => {
+    const a = (i / 6) * Math.PI * 2;
+    const item = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), new THREE.MeshStandardMaterial({ color: c }));
+    item.position.set(Math.cos(a) * 0.25, 0.88, Math.sin(a) * 0.25); scene.add(item);
   });
 
-  // Elijah cup
-  scene.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.035, 0.16, 10), new THREE.MeshStandardMaterial({ color: 0xDAA520, metalness: 0.7, roughness: 0.3 })), 0, 1.18, -0.28));
+  // Matzah stack — to the left of plate
+  for (let i = 0; i < 3; i++) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.015, 0.35), new THREE.MeshStandardMaterial({ color: 0xD2B48C, roughness: 0.9 }));
+    m.position.set(-0.7, 0.84 + i * 0.018, 0); scene.add(m);
+  }
 
-  // Lighting — warm room fill + table so faces aren’t lost in shadow
-  scene.add(new THREE.AmbientLight(0xE8D4C4, 0.52));
-  scene.add(new THREE.HemisphereLight(0xC4B4A8, 0x2A2018, 0.45));
-  const over = new THREE.PointLight(0xFFF5E6, 1.25, 35, 1.2); over.position.set(0, 7.5, 2); over.castShadow = true; scene.add(over);
-  scene.add(place(new THREE.PointLight(0xFFD4A8, 0.55, 22, 1.5), -6, 4.5, 4));
-  scene.add(place(new THREE.PointLight(0xFFD4A8, 0.55, 22, 1.5), 6, 4.5, 4));
-  scene.add(place(new THREE.PointLight(0xFFE8CC, 0.4, 16, 1.6), 0, 2.8, 5));
+  // Matzah cover (cloth over matzah)
+  const cover = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.005, 0.4), new THREE.MeshStandardMaterial({ color: 0xE8E0D0 }));
+  cover.position.set(-0.7, 0.90, 0); scene.add(cover);
 
-  // Characters
+  // Candles in candlesticks — right side
+  for (const cx of [-0.15, 0.15]) {
+    // Candlestick base
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 0.05, 8), new THREE.MeshStandardMaterial({ color: 0xC0C0C0, metalness: 0.8, roughness: 0.2 }));
+    base.position.set(0.7 + cx, 0.84, -0.3); scene.add(base);
+    // Candlestick stem
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.2, 8), new THREE.MeshStandardMaterial({ color: 0xC0C0C0, metalness: 0.8 }));
+    stem.position.set(0.7 + cx, 0.97, -0.3); scene.add(stem);
+    // Candle
+    const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.2, 8), new THREE.MeshStandardMaterial({ color: 0xFFF8DC }));
+    candle.position.set(0.7 + cx, 1.17, -0.3); scene.add(candle);
+    // Flame
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.015, 0.04, 6), new THREE.MeshBasicMaterial({ color: 0xFFAA33 }));
+    flame.position.set(0.7 + cx, 1.30, -0.3); scene.add(flame);
+  }
+
+  // Candle lights
+  const candleLight1 = new THREE.PointLight(0xFFAA33, 1.2, 6);
+  candleLight1.position.set(0.55, 1.4, -0.3); candleLight1.castShadow = true; scene.add(candleLight1);
+  const candleLight2 = new THREE.PointLight(0xFFAA33, 1.2, 6);
+  candleLight2.position.set(0.85, 1.4, -0.3); candleLight2.castShadow = true; scene.add(candleLight2);
+
+  // Elijah's cup — gold, center-back of table
+  const elijahCup = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.03, 0.14, 10), new THREE.MeshStandardMaterial({ color: 0xDAA520, metalness: 0.8, roughness: 0.2 }));
+  elijahCup.position.set(0.3, 0.89, -0.6); scene.add(elijahCup);
+
+  // Haggadah books scattered on table
+  for (let i = 0; i < 6; i++) {
+    const book = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 0.2), new THREE.MeshStandardMaterial({ color: [0x8B1A1A, 0x1A1A8B, 0x2E8B57, 0x8B4513, 0x4A1A6B, 0x1A6B4A][i] }));
+    const bx = (i - 2.5) * 0.8 + (Math.random() - 0.5) * 0.3;
+    const bz = (i % 2 === 0 ? 0.7 : -0.7) + (Math.random() - 0.5) * 0.2;
+    book.position.set(bx, 0.83, bz);
+    book.rotation.y = Math.random() * 0.3 - 0.15;
+    scene.add(book);
+  }
+
+  // ── LIGHTING — warm, candlelit feel ──
+  const ambient = new THREE.AmbientLight(0x1A1008, 0.3);
+  scene.add(ambient);
+
+  // Overhead warm light (like a chandelier)
+  const overhead = new THREE.PointLight(0xFFDDBB, 0.5, 12);
+  overhead.position.set(0, 4, 0); overhead.castShadow = true; scene.add(overhead);
+
+  // Warm fill lights
+  scene.add(Object.assign(new THREE.PointLight(0xFF9955, 0.2, 8), { position: new THREE.Vector3(-3, 2, -2) }));
+  scene.add(Object.assign(new THREE.PointLight(0xFF9955, 0.2, 8), { position: new THREE.Vector3(3, 2, -2) }));
+
+  // ── CHARACTERS — Built with the CharacterBuilder for detailed humanoid figures ──
   const chars: Record<string, CharMesh> = {};
-  const n = DEFAULT_CHARACTERS.length;
+
+  // Seat positions — 6 per side of the rectangular table, leader at head
+  const seatPositions: [number, number, number][] = [];
+  seatPositions.push([0, 0, -2.2]); // Head of table (leader)
+  for (let i = 0; i < 5; i++) seatPositions.push([-3.2, 0, -1.0 + i * 0.6]); // Left side
+  for (let i = 0; i < 5; i++) seatPositions.push([3.2, 0, -1.0 + i * 0.6]);  // Right side
+  seatPositions.push([0, 0, 2.2]); // Foot of table
 
   DEFAULT_CHARACTERS.forEach((ch, i) => {
-    const ang = (i / n) * Math.PI * 2 - Math.PI / 2;
-    const x = Math.cos(ang) * 4.2, z = Math.sin(ang) * 3.2;
-    const g = new THREE.Group(); g.position.set(x, 0, z); g.lookAt(0, 1, 0);
+    const [sx, , sz] = seatPositions[i] || seatPositions[0];
 
-    // Chair
-    const chMat = new THREE.MeshStandardMaterial({ color: 0x4A3520 });
-    g.add(place(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.42), chMat), 0, 0.64, 0));
-    g.add(place(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.55, 0.04), chMat), 0, 0.95, -0.19));
-    for (let l = 0; l < 4; l++) g.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.64, 6), chMat), l % 2 ? 0.2 : -0.2, 0.32, l < 2 ? -0.17 : 0.17));
+    // Build chair
+    const chair = buildChair();
+    chair.position.set(sx, 0, sz);
+    chair.lookAt(0, 0.8, 0);
+    scene.add(chair);
 
-    // Body
-    const bMat = new THREE.MeshStandardMaterial({ color: ch.color, roughness: 0.7 });
-    const baseY = ch.age === 'child' ? 0.9 : 1.04;
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(ch.bodyW, ch.bodyW * 0.85, ch.bodyH, 8), bMat);
-    body.position.set(0, baseY, 0.04); g.add(body);
+    // Build character using the detailed CharacterBuilder
+    const built = buildCharacter(ch);
+    built.group.position.set(sx, 0, sz);
+    built.group.lookAt(0, 0.8, 0);
+    scene.add(built.group);
 
-    // Head
-    const hSize = 0.13 * ch.headS;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(hSize, 12, 12), new THREE.MeshStandardMaterial({ color: ch.skin, roughness: 0.6 }));
-    const headY = baseY + ch.bodyH / 2 + hSize + 0.02;
-    head.position.set(0, headY, 0.04); g.add(head);
+    // Place setting on the table near this character
+    const dirToCenter = new THREE.Vector3(-sx, 0, -sz).normalize();
+    const plateX = sx + dirToCenter.x * (Math.abs(sx) > 2 ? 1.5 : 0.8);
+    const plateZ = sz + dirToCenter.z * (Math.abs(sz) > 2 ? 0.6 : 0.8);
 
-    // Hair
-    if (ch.hairType === 'long') { const h = new THREE.Mesh(new THREE.SphereGeometry(hSize * 1.1, 10, 10), new THREE.MeshStandardMaterial({ color: ch.hair })); h.scale.set(1, 1.3, 1); h.position.set(0, headY - 0.01, 0.02); g.add(h); }
-    else if (ch.hairType === 'short') { const h = new THREE.Mesh(new THREE.SphereGeometry(hSize * 0.9, 8, 8), new THREE.MeshStandardMaterial({ color: ch.hair })); h.position.set(0, headY + hSize * 0.35, 0.02); h.scale.set(1.1, 0.5, 1); g.add(h); }
-    else if (ch.hairType === 'short_curly') { const h = new THREE.Mesh(new THREE.SphereGeometry(hSize * 0.95, 8, 8), new THREE.MeshStandardMaterial({ color: ch.hair })); h.position.set(0, headY + hSize * 0.2, 0.02); h.scale.set(1.15, 0.6, 1.1); g.add(h); }
-    if (ch.kippah) { const k = new THREE.Mesh(new THREE.SphereGeometry(hSize * 0.5, 8, 8), new THREE.MeshStandardMaterial({ color: 0x1A1A2E })); k.position.set(0, headY + hSize * 0.7, 0); k.scale.set(1, 0.3, 1); g.add(k); }
-    if (ch.beard) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshStandardMaterial({ color: ch.hair })); b.position.set(0, headY - hSize * 0.8, 0.08); b.scale.set(0.8, 1.2, 0.6); g.add(b); }
+    // Plate
+    scene.add(Object.assign(new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.12, 0.008, 12),
+      new THREE.MeshStandardMaterial({ color: 0xFAF0E6, roughness: 0.7 })
+    ), { position: new THREE.Vector3(plateX, 0.83, plateZ) }));
 
-    // Arms
-    const armGeo = new THREE.CylinderGeometry(0.035, 0.03, ch.bodyH * 0.7, 6);
-    const lArm = new THREE.Mesh(armGeo, bMat.clone()); lArm.position.set(-ch.bodyW - 0.04, baseY - 0.02, 0.08); lArm.rotation.z = 0.25; g.add(lArm);
-    const rArm = new THREE.Mesh(armGeo, bMat.clone()); rArm.position.set(ch.bodyW + 0.04, baseY - 0.02, 0.08); rArm.rotation.z = -0.25; g.add(rArm);
+    // Wine cup
+    scene.add(Object.assign(new THREE.Mesh(
+      new THREE.CylinderGeometry(0.025, 0.018, 0.08, 8),
+      new THREE.MeshStandardMaterial({ color: 0xC0C0C0, metalness: 0.6, roughness: 0.3 })
+    ), { position: new THREE.Vector3(plateX + 0.15, 0.87, plateZ) }));
 
-    // Cup + wine + plate
-    g.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.02, 0.09, 8), new THREE.MeshStandardMaterial({ color: 0xC0C0C0, metalness: 0.5 })), 0.15, 1.1, 0.32));
-    g.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.027, 0.027, 0.025, 8), new THREE.MeshStandardMaterial({ color: 0x722F37 })), 0.15, 1.12, 0.32));
-    g.add(place(new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.008, 12), new THREE.MeshStandardMaterial({ color: 0xFAF0E6 })), -0.1, 1.07, 0.32));
+    // Wine in cup
+    scene.add(Object.assign(new THREE.Mesh(
+      new THREE.CylinderGeometry(0.022, 0.022, 0.02, 8),
+      new THREE.MeshStandardMaterial({ color: 0x722F37 })
+    ), { position: new THREE.Vector3(plateX + 0.15, 0.89, plateZ) }));
 
-    scene.add(g);
-    chars[ch.id] = { group: g, body, head, lArm, rArm, baseY, headY, standing: false, speaking: false, celebrating: false, drinking: false, phase: Math.random() * 6.28 };
+    chars[ch.id] = {
+      built,
+      group: built.group,
+      standing: false, speaking: false, celebrating: false, drinking: false,
+      phase: Math.random() * Math.PI * 2
+    };
   });
 
-  return { scene, camera, renderer, chars, candles, over, cinematic, reducedMotion };
+  return { scene, camera, renderer, chars, candleLight1, candleLight2, overhead };
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MAIN PAGE COMPONENT
+// MAIN PAGE
 // ═══════════════════════════════════════════════════════════════
 
 export default function SederPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<any>(null);
-  const directorRef = useRef<Director | null>(null);
+  const dirRef = useRef<Director | null>(null);
   const clockRef = useRef<THREE.Clock | null>(null);
   const animRef = useRef<number>(0);
 
   const [started, setStarted] = useState(false);
-  const [prefs, setPrefs] = useState<SederPrefs>(defaultPrefs);
-  const [agentThinking, setAgentThinking] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-
-  useEffect(() => {
-    setPrefs(loadPrefs());
-  }, []);
-
-  const patchPrefs = useCallback((p: Partial<SederPrefs>) => {
-    setPrefs((prev) => {
-      const next = { ...prev, ...p };
-      savePrefs(next);
-      return next;
-    });
-  }, []);
+  const [tradition, setTradition] = useState<'ashkenazi' | 'sephardi'>('ashkenazi');
+  const [speakLang, setSpeakLang] = useState<'en' | 'he'>('en');
+  const [apiKey, setApiKey] = useState('');
+  const [elevenKey, setElevenKey] = useState('');
 
   const [phase, setPhase] = useState('');
   const [subtitle, setSubtitle] = useState({ he: '', en: '', speaker: '' as string | null });
@@ -201,424 +233,282 @@ export default function SederPage() {
   const [showEn, setShowEn] = useState(true);
   const [done, setDone] = useState(false);
 
-  // Animation loop for characters
-  const animateScene = useCallback((sc: any, clock: THREE.Clock) => {
-    const loop = () => {
-      animRef.current = requestAnimationFrame(loop);
-      const t = clock.getElapsedTime();
+  const startSeder = async () => {
+    setStarted(true);
+    const script = buildScript(tradition);
+    setTotalBeats(script.length);
 
-      Object.values(sc.chars as Record<string, CharMesh>).forEach((c) => {
-        c.body.position.y = c.baseY + Math.sin(t * 1.5 + c.phase) * 0.004;
-        c.head.position.y = c.headY + Math.sin(t * 1.5 + c.phase) * 0.004;
-        if (c.speaking) { c.head.rotation.y = Math.sin(t * 3) * 0.08; c.rArm.rotation.z = -0.25 + Math.sin(t * 2) * 0.15; c.rArm.rotation.x = Math.sin(t * 1.8) * 0.1; }
-        else { c.head.rotation.y *= 0.93; c.rArm.rotation.z += (-0.25 - c.rArm.rotation.z) * 0.05; c.rArm.rotation.x *= 0.93; }
-        if (c.standing) { c.body.position.y = c.baseY + 0.32; c.head.position.y = c.headY + 0.32; c.lArm.position.y = c.baseY + 0.3; c.rArm.position.y = c.baseY + 0.3; }
-        else { c.lArm.position.y += (c.baseY - 0.02 - c.lArm.position.y) * 0.05; c.rArm.position.y += (c.baseY - 0.02 - c.rArm.position.y) * 0.05; }
-        if (c.drinking) { c.rArm.rotation.z = -1.2; c.rArm.rotation.x = -0.3; }
-        if (c.celebrating) { c.lArm.rotation.z = 0.25 + Math.sin(t * 4 + c.phase) * 0.5; c.rArm.rotation.z = -0.25 - Math.sin(t * 4 + c.phase + 1) * 0.5; c.lArm.rotation.x = Math.sin(t * 3) * 0.3 - 0.5; c.rArm.rotation.x = Math.sin(t * 3 + 0.5) * 0.3 - 0.5; }
-        else if (!c.speaking && !c.drinking) { c.lArm.rotation.z += (0.25 - c.lArm.rotation.z) * 0.05; c.lArm.rotation.x *= 0.93; }
-      });
+    await new Promise(r => setTimeout(r, 300));
 
-      sc.candles.forEach((obj: THREE.Object3D, i: number) => {
-        if (obj.userData?.isCandleLight && obj instanceof THREE.PointLight) {
-          obj.intensity = 1.25 + Math.sin(t * 8 + i * 0.5) * 0.35;
-        } else if (obj.userData?.isFlame && obj instanceof THREE.Mesh) {
-          const f = obj as THREE.Mesh;
-          f.scale.y = 1 + Math.sin(t * 10 + i) * 0.12;
-          f.scale.x = 1 + Math.sin(t * 11 + i) * 0.08;
+    const audio = new AudioEngine();
+    await audio.init(apiKey ? undefined : undefined); // Web Speech only if no EL key
+    // Try ElevenLabs key from env or input
+    const elKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || elevenKey;
+    if (elKey) {
+      await audio.init(elKey);
+    } else {
+      await audio.init();
+    }
+    audio.speakLang = speakLang;
+    audio.enabled = audioOn;
+
+    const dialogue = new DialogueEngine();
+    dialogue.apiKey = apiKey;
+    await dialogue.loadProfiles(DEFAULT_CHARACTERS.map(c => c.id));
+
+    clockRef.current = new THREE.Clock();
+    const sc = buildScene(canvasRef.current!);
+    sceneRef.current = sc;
+
+    // Animation loop
+    const animate = () => {
+      animRef.current = requestAnimationFrame(animate);
+      const t = clockRef.current!.getElapsedTime();
+
+      Object.values(sc.chars).forEach((c: CharMesh) => {
+        const b = c.built;
+        // Idle breathing
+        const breath = Math.sin(t * 1.5 + c.phase) * 0.003;
+        b.body.position.y = b.bodyBaseY + breath;
+        b.head.position.y = b.headBaseY + breath;
+
+        // Speaking animation — head moves, arm gestures, mouth opens
+        if (c.speaking) {
+          b.head.rotation.y = Math.sin(t * 2.5 + c.phase) * 0.12;
+          b.head.rotation.x = Math.sin(t * 2) * 0.04;
+          b.rArm.rotation.z = -0.25 + Math.sin(t * 1.8) * 0.2;
+          b.rArm.rotation.x = -0.2 + Math.sin(t * 1.5) * 0.15;
+          // Mouth animation — scale the mouth to simulate talking
+          if (b.mouth) {
+            b.mouth.scale.y = 1 + Math.abs(Math.sin(t * 8)) * 0.8;
+            b.mouth.scale.x = 1 + Math.abs(Math.sin(t * 6)) * 0.3;
+          }
+          // Eyes look around slightly
+          if (b.lEye && b.rEye) {
+            const eyeShift = Math.sin(t * 1.2) * 0.003;
+            b.lEye.position.x += eyeShift * 0.1;
+            b.rEye.position.x += eyeShift * 0.1;
+          }
+        } else {
+          b.head.rotation.y *= 0.92;
+          b.head.rotation.x *= 0.92;
+          b.rArm.rotation.z += (-0.25 - b.rArm.rotation.z) * 0.06;
+          b.rArm.rotation.x += (-0.2 - b.rArm.rotation.x) * 0.06;
+          if (b.mouth) {
+            b.mouth.scale.y += (1 - b.mouth.scale.y) * 0.1;
+            b.mouth.scale.x += (1 - b.mouth.scale.x) * 0.1;
+          }
+        }
+
+        // Standing
+        if (c.standing) {
+          const standOff = 0.3;
+          b.body.position.y = b.bodyBaseY + standOff;
+          b.head.position.y = b.headBaseY + standOff;
+          b.lArm.position.y = b.armBaseY + standOff;
+          b.rArm.position.y = b.armBaseY + standOff;
+        } else {
+          b.lArm.position.y += (b.armBaseY - b.lArm.position.y) * 0.06;
+          b.rArm.position.y += (b.armBaseY - b.rArm.position.y) * 0.06;
+        }
+
+        // Drinking
+        if (c.drinking) {
+          b.rArm.rotation.z = -1.1;
+          b.rArm.rotation.x = -0.5;
+        }
+
+        // Celebrating — wave both arms
+        if (c.celebrating) {
+          b.lArm.rotation.z = 0.25 + Math.sin(t * 4 + c.phase) * 0.6;
+          b.rArm.rotation.z = -0.25 - Math.sin(t * 4 + c.phase + 1) * 0.6;
+          b.lArm.rotation.x = Math.sin(t * 3) * 0.3 - 0.6;
+          b.rArm.rotation.x = Math.sin(t * 3 + 0.5) * 0.3 - 0.6;
+        } else if (!c.speaking && !c.drinking) {
+          b.lArm.rotation.z += (0.25 - b.lArm.rotation.z) * 0.06;
+          b.lArm.rotation.x += (-0.2 - b.lArm.rotation.x) * 0.06;
         }
       });
 
-      const orbit = sc.cinematic !== false && !sc.reducedMotion;
-      if (!orbit) {
-        sc.camera.position.set(0, 7, 10);
-        sc.camera.lookAt(0, 1.2, 0);
-      } else {
-        const ca = t * 0.05;
-        sc.camera.position.x = Math.sin(ca) * 8.5;
-        sc.camera.position.z = 6.2 + Math.cos(ca) * 3.6;
-        sc.camera.position.y = 5.2 + Math.sin(t * 0.07) * 1.2;
-        sc.camera.lookAt(0, 1.15, 0);
-      }
+      // Candle flicker
+      sc.candleLight1.intensity = 1.2 + Math.sin(t * 7) * 0.3;
+      sc.candleLight2.intensity = 1.2 + Math.sin(t * 8 + 1) * 0.3;
+
+      // Camera — slow orbit with gentle bob
+      const ca = t * 0.04;
+      const camR = 9;
+      sc.camera.position.x = Math.sin(ca) * camR;
+      sc.camera.position.z = 3 + Math.cos(ca) * (camR - 3);
+      sc.camera.position.y = 4.5 + Math.sin(t * 0.06) * 0.8;
+      sc.camera.lookAt(0, 0.9, 0);
+
       sc.renderer.render(sc.scene, sc.camera);
     };
-    loop();
-  }, []);
+    animate();
 
-  const startSeder = async () => {
-    setStarted(true);
-    const script = buildScript(prefs.tradition);
-    setTotalBeats(script.length);
-
-    await new Promise(r => setTimeout(r, 400));
-
-    // Init audio
-    const audio = new AudioEngine();
-    await audio.init();
-    audio.speakLang = prefs.speakLang;
-    audio.enabled = audioOn;
-
-    // Init dialogue engine — agent activity lights up the “thinking” UI
-    const dialogue = new DialogueEngine((active) => setAgentThinking(active));
-    await dialogue.loadProfiles(DEFAULT_CHARACTERS.map(c => c.id));
-
-    // Init 3D
-    clockRef.current = new THREE.Clock();
-    const sc = buildSederScene(canvasRef.current!, {
-      cinematic: prefs.cinematicCamera,
-      reducedMotion: prefs.reducedMotion,
-    });
-    sceneRef.current = sc;
-    animateScene(sc, clockRef.current);
-
-    // Resize handler
-    const onResize = () => {
+    window.addEventListener('resize', () => {
       if (!canvasRef.current) return;
       const w = canvasRef.current.clientWidth, h = canvasRef.current.clientHeight;
       sc.camera.aspect = w / h; sc.camera.updateProjectionMatrix(); sc.renderer.setSize(w, h);
-    };
-    window.addEventListener('resize', onResize);
+    });
 
-    // Create and start director
     const director = new Director(script, audio, dialogue, {
       onPhase: setPhase,
-      onSubtitle: (d) => setSubtitle(d),
+      onSubtitle: setSubtitle,
       onSpeaker: setSpeaker,
       onBeatIndex: setBeatIdx,
       onFinished: () => setDone(true),
-      onDoor: () => { if (sc.over) { sc.over.intensity = 0.15; setTimeout(() => { if (sc.over) sc.over.intensity = 0.6; }, 5000); } },
+      onDoor: () => { sc.overhead.intensity = 0.1; setTimeout(() => sc.overhead.intensity = 0.5, 5000); },
       onAnimate: (spk, action) => {
-        const apply = (cid: string) => {
-          const c = sc.chars[cid]; if (!c) return;
-          switch (action) {
-            case 'speak': case 'mumble': c.speaking = true; break;
-            case 'stand': c.standing = true; break;
-            case 'sit': c.standing = false; break;
-            case 'drink': c.drinking = true; setTimeout(() => { c.drinking = false; }, 2500); break;
-            case 'eat': case 'eat_meal': case 'break_matzah': c.speaking = true; break;
-            case 'sing': c.speaking = true; c.celebrating = true; break;
-            case 'celebrate': c.celebrating = true; break;
-            case 'spill': c.speaking = true; break;
-          }
+        const apply = (id: string) => {
+          const c = sc.chars[id]; if (!c) return;
+          if (action === 'speak' || action === 'mumble') c.speaking = true;
+          else if (action === 'stand') c.standing = true;
+          else if (action === 'sit') c.standing = false;
+          else if (action === 'drink') { c.drinking = true; setTimeout(() => c.drinking = false, 2500); }
+          else if (action === 'eat' || action === 'eat_meal' || action === 'break_matzah') c.speaking = true;
+          else if (action === 'sing') { c.speaking = true; c.celebrating = true; }
+          else if (action === 'celebrate') c.celebrating = true;
+          else if (action === 'spill') c.speaking = true;
         };
         if (spk === 'all') Object.keys(sc.chars).forEach(apply);
         else if (spk) apply(spk);
       },
       onResetCharacter: (spk) => {
-        if (spk === 'all') Object.values(sc.chars).forEach((c: CharMesh) => { c.speaking = false; c.celebrating = false; c.drinking = false; });
-        else { const c = sc.chars[spk]; if (c) { c.speaking = false; c.celebrating = false; c.drinking = false; } }
+        const reset = (id: string) => { const c = sc.chars[id]; if (c) { c.speaking = false; c.celebrating = false; c.drinking = false; } };
+        if (spk === 'all') Object.keys(sc.chars).forEach(reset);
+        else reset(spk);
       },
-    }, prefs.useAI);
+    }, !!apiKey);
 
-    directorRef.current = director;
+    dirRef.current = director;
     director.run();
   };
 
-  useEffect(() => {
-    const sc = sceneRef.current;
-    if (!sc || !('cinematic' in sc)) return;
-    sc.cinematic = prefs.cinematicCamera;
-    sc.reducedMotion = prefs.reducedMotion;
-  }, [prefs.cinematicCamera, prefs.reducedMotion, started]);
+  useEffect(() => { if (dirRef.current) dirRef.current.paused = paused; }, [paused]);
+  useEffect(() => { if (dirRef.current) dirRef.current.speed = speed; }, [speed]);
 
-  // Sync pause/speed to director
-  useEffect(() => { if (directorRef.current) directorRef.current.setPaused(paused); }, [paused]);
-  useEffect(() => { if (directorRef.current) directorRef.current.speed = speed; }, [speed]);
+  const spkName = speaker === 'all' ? 'Everyone' : charMap[speaker || '']?.name || '';
+  const spkRole = speaker === 'all' ? '' : charMap[speaker || '']?.role || '';
 
-  const speakerName = speaker === 'all' ? 'Everyone' : charMap[speaker || '']?.name || '';
-  const speakerRole = speaker === 'all' ? '' : charMap[speaker || '']?.role || '';
-  const subFonts = subtitleFontPx(prefs.subtitleScale);
-
-  // ── SPLASH SCREEN ──
+  // ── SPLASH ──
   if (!started) return (
-    <div style={{ minHeight: '100vh', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px 32px' }}>
-      <div className="seder-magical-bg" aria-hidden />
-      <div className="seder-ember-layer" aria-hidden>
-        {Array.from({ length: 18 }).map((_, i) => (
-          <div
-            key={i}
-            className="seder-ember"
-            style={{
-              left: `${5 + (i * 5.7) % 88}%`,
-              animationDelay: `${i * 0.55}s`,
-              animationDuration: `${11 + (i % 6)}s`,
-            }}
+    <div style={{ minHeight: '100vh', background: 'radial-gradient(ellipse at 40% 30%,#2A1F14 0%,#0C0906 70%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Crimson Pro',Georgia,serif", padding: 20 }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,200;0,300;0,400;0,600;0,700;1,300&display=swap');
+      @keyframes fadeIn{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+      @keyframes flicker{0%,100%{opacity:1}40%{opacity:0.8}}
+      @keyframes glow{0%,100%{text-shadow:0 0 10px #D4A01733}50%{text-shadow:0 0 25px #D4A01766}}
+      *{box-sizing:border-box}`}</style>
+      <div style={{ textAlign: 'center', animation: 'fadeIn 2s ease', maxWidth: 520 }}>
+        <div style={{ fontSize: 48, marginBottom: 20, display: 'flex', justifyContent: 'center', gap: 32 }}>
+          <span style={{ animation: 'flicker 4s infinite' }}>🕯️</span>
+          <span style={{ animation: 'flicker 4s infinite 1s' }}>🕯️</span>
+        </div>
+        <div style={{ color: '#D4A017', fontSize: 11, letterSpacing: 6, textTransform: 'uppercase' as const, marginBottom: 12 }}>A Fully Autonomous 3D AI Seder</div>
+        <h1 style={{ color: '#FAF0E6', fontSize: 48, fontWeight: 200, margin: 0, animation: 'glow 4s infinite' }}>The Agentic Seder</h1>
+        <div style={{ color: '#8B7355', fontSize: 36, margin: '6px 0 20px' }}>הַסֵּדֶר</div>
+
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 14 }}>
+          {(['ashkenazi', 'sephardi'] as const).map(t => (
+            <button key={t} onClick={() => setTradition(t)} style={{ background: tradition === t ? '#D4A01733' : '#1A1410', border: `1px solid ${tradition === t ? '#D4A017' : '#3D3428'}`, color: tradition === t ? '#D4A017' : '#8B7355', borderRadius: 8, padding: '7px 18px', cursor: 'pointer', fontSize: 13, fontFamily: "'Crimson Pro',serif" }}>
+              {t === 'ashkenazi' ? 'Ashkenazi' : 'Sephardi'}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 14 }}>
+          {([['en', 'English'], ['he', 'עברית']] as const).map(([v, l]) => (
+            <button key={v} onClick={() => setSpeakLang(v as any)} style={{ background: speakLang === v ? '#3A2A10' : '#1A1410', border: `1px solid ${speakLang === v ? '#D4A017' : '#3D3428'}`, color: speakLang === v ? '#D4A017' : '#5A4D3C', borderRadius: 6, padding: '5px 14px', cursor: 'pointer', fontSize: 12 }}>{l}</button>
+          ))}
+        </div>
+
+        {/* API Keys */}
+        <div style={{ marginBottom: 20, maxWidth: 380, margin: '0 auto 20px' }}>
+          <input
+            type="password"
+            placeholder="Claude API key (enables AI dialogue)"
+            value={apiKey}
+            onChange={e => setApiKey(e.target.value)}
+            style={{ width: '100%', background: '#1A1410', border: '1px solid #3D3428', borderRadius: 8, padding: '8px 14px', color: '#8B7355', fontSize: 12, outline: 'none', textAlign: 'center', fontFamily: 'monospace', marginBottom: 8 }}
           />
-        ))}
-      </div>
-      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}`}</style>
-      <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', animation: 'fadeIn 1.2s ease', maxWidth: 480, width: '100%' }}>
-        <div style={{ fontSize: 'clamp(40px,11vw,56px)', marginBottom: 20, display: 'flex', justifyContent: 'center', gap: 28, filter: 'drop-shadow(0 0 20px rgba(232,197,106,0.25))' }}>
-          <span style={{ animation: 'seder-float 3s ease-in-out infinite' }}>🕯️</span>
-          <span style={{ animation: 'seder-float 3s ease-in-out infinite 0.5s' }}>✡️</span>
-          <span style={{ animation: 'seder-float 3s ease-in-out infinite 1s' }}>🕯️</span>
-        </div>
-        <p style={{ color: 'var(--seder-gold-dim)', fontSize: 11, letterSpacing: '0.35em', textTransform: 'uppercase' as const, marginBottom: 12, fontFamily: 'var(--font-body)' }}>
-          Autonomous · AI · 3D
-        </p>
-        <h1 style={{
-          fontFamily: 'var(--font-display)',
-          color: '#FAF0E6',
-          fontSize: 'clamp(2.4rem, 8vw, 3.4rem)',
-          fontWeight: 500,
-          margin: 0,
-          lineHeight: 1.05,
-          textShadow: '0 0 80px rgba(232,197,106,0.2)',
-        }}>
-          The Agentic Seder
-        </h1>
-        <div style={{ color: 'var(--seder-gold)', fontSize: 'clamp(1.5rem,5vw,2rem)', margin: '12px 0 20px', fontWeight: 300, letterSpacing: '0.02em' }}>הַסֵּדֶר</div>
-        <p style={{ color: '#a09080', fontSize: 15, lineHeight: 1.75, margin: '0 auto 28px', maxWidth: 420 }}>
-          Twelve souls around one table — liturgy, song, and <strong style={{ color: '#c9a86c' }}>living dialogue</strong> shaped by your character profiles. Press play and let the night unfold.
-        </p>
-
-        <div className="seder-glass-panel" style={{ padding: '22px 20px 24px', marginBottom: 22, textAlign: 'left' }}>
-          <div style={{ color: 'var(--seder-gold)', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase' as const, marginBottom: 12 }}>Tradition</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
-            {(['ashkenazi', 'sephardi'] as const).map(t => (
-              <button
-                key={t}
-                type="button"
-                className="seder-setting-chip"
-                data-active={prefs.tradition === t}
-                onClick={() => patchPrefs({ tradition: t })}
-              >
-                {t === 'ashkenazi' ? 'Ashkenazi' : 'Sephardi'}
-              </button>
-            ))}
-          </div>
-          <div style={{ color: 'var(--seder-gold)', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase' as const, marginBottom: 12 }}>Voice</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
-            {([['en', 'English'], ['he', 'עברית'], ['both', 'Both']] as const).map(([v, l]) => (
-              <button
-                key={v}
-                type="button"
-                className="seder-setting-chip"
-                data-active={prefs.speakLang === v}
-                onClick={() => patchPrefs({ speakLang: v })}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
-          <div style={{ color: 'var(--seder-gold)', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase' as const, marginBottom: 12 }}>Agent (dialogue)</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18, alignItems: 'center' }}>
-            <button
-              type="button"
-              className="seder-setting-chip"
-              data-active={prefs.useAI}
-              onClick={() => patchPrefs({ useAI: !prefs.useAI })}
-            >
-              {prefs.useAI ? '✨ Claude — on' : '📝 Scripted only'}
-            </button>
-            <span style={{ color: '#6a5a4a', fontSize: 12, marginLeft: 4 }}>Uses profiles in <code style={{ color: '#8a7a6a' }}>public/characters/</code></span>
-          </div>
-          <div style={{ color: 'var(--seder-gold)', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase' as const, marginBottom: 12 }}>Experience</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-            {(['sm', 'md', 'lg'] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                className="seder-setting-chip"
-                data-active={prefs.subtitleScale === s}
-                onClick={() => patchPrefs({ subtitleScale: s })}
-              >
-                Subtitles {s.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <button
-              type="button"
-              className="seder-setting-chip"
-              data-active={prefs.cinematicCamera}
-              onClick={() => patchPrefs({ cinematicCamera: !prefs.cinematicCamera })}
-            >
-              Cinematic camera
-            </button>
-            <button
-              type="button"
-              className="seder-setting-chip"
-              data-active={prefs.reducedMotion}
-              onClick={() => patchPrefs({ reducedMotion: !prefs.reducedMotion })}
-            >
-              Calm motion
-            </button>
+          <input
+            type="password"
+            placeholder="ElevenLabs API key (enables natural voices)"
+            value={elevenKey}
+            onChange={e => setElevenKey(e.target.value)}
+            style={{ width: '100%', background: '#1A1410', border: '1px solid #3D3428', borderRadius: 8, padding: '8px 14px', color: '#8B7355', fontSize: 12, outline: 'none', textAlign: 'center', fontFamily: 'monospace' }}
+          />
+          <div style={{ color: '#3D3428', fontSize: 10, marginTop: 6, lineHeight: 1.5 }}>
+            {apiKey ? '🟢 AI dialogue' : '⚪ Fallback dialogue'} · {elevenKey || process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY ? '🟢 Natural voices (ElevenLabs)' : '⚪ Browser voices'}
           </div>
         </div>
 
-        <button type="button" className="seder-btn-primary" onClick={startSeder}>
-          Light the candles
+        <button onClick={startSeder} style={{ background: 'linear-gradient(135deg,#8B1A1A,#4A0A0A)', color: '#FAF0E6', border: '1px solid #A0282844', borderRadius: 14, padding: '16px 52px', fontSize: 20, fontFamily: "'Crimson Pro',serif", fontWeight: 300, cursor: 'pointer', boxShadow: '0 6px 40px rgba(139,26,26,0.35)', transition: 'transform 0.2s' }}
+          onMouseOver={e => (e.currentTarget.style.transform = 'scale(1.05)')} onMouseOut={e => (e.currentTarget.style.transform = 'scale(1)')}>
+          Light the Candles
         </button>
-        <p style={{ color: '#4a3c38', fontSize: 12, marginTop: 22, lineHeight: 1.6 }}>
-          Preferences saved in this browser. Open source — edit markdown profiles to match your family.
-        </p>
+        <div style={{ color: '#3D3428', fontSize: 10, marginTop: 16 }}>12 characters · Full Haggadah · Spoken audio · Open Source</div>
       </div>
     </div>
   );
 
-  // ── MAIN 3D VIEW ──
+  // ── MAIN ──
   return (
-    <div className="seder-root" style={{
-      width: '100%',
-      minHeight: '100vh',
-      position: 'relative',
-      background: 'var(--seder-bg-deep)',
-      overflow: 'hidden',
-      paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-    }}>
-      <div className="seder-magical-bg" style={{ opacity: 0.55 }} aria-hidden />
-      <style>{`
-        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes subtIn{from{opacity:0}to{opacity:1}}
-        .seder-root { min-height:100dvh; }
-        .seder-canvas-wrap { width:100%; height:100%; min-height:100dvh; touch-action:none; }
-        .seder-subtitle-box { width:92%; max-width:720px; box-shadow: 0 8px 40px rgba(0,0,0,0.45), 0 0 1px rgba(232,197,106,0.2) inset; }
-        @media (max-width:640px){
-          .seder-phase-pill { font-size:13px !important; padding:5px 12px !important; max-width:92vw; }
-          .seder-speaker-box { max-width:46vw; }
-          .seder-subtitle-box { width:96% !important; padding:10px 14px !important; }
-          .seder-controls { flex-wrap:wrap; padding:10px 8px calc(10px + env(safe-area-inset-bottom)) !important; gap:8px !important; }
-          .seder-controls button, .seder-controls select { min-height:44px; min-width:44px; font-size:14px !important; touch-action:manipulation; }
-        }
-      `}</style>
+    <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#0C0906', overflow: 'hidden', fontFamily: "'Crimson Pro',Georgia,serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,200;0,300;0,400;0,600;0,700;1,300&display=swap');
+      @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+      @keyframes subtIn{from{opacity:0}to{opacity:1}}*{box-sizing:border-box}`}</style>
 
-      <canvas ref={canvasRef} className="seder-canvas-wrap" style={{ display: 'block' }} />
+      <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
 
-      <button
-        type="button"
-        onClick={() => setSettingsOpen(true)}
-        className="seder-glass-panel"
-        style={{
-          position: 'absolute',
-          top: 14,
-          right: 14,
-          zIndex: 30,
-          width: 46,
-          height: 46,
-          borderRadius: 12,
-          cursor: 'pointer',
-          color: 'var(--seder-gold)',
-          fontSize: 20,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          border: '1px solid rgba(232,197,106,0.2)',
-        }}
-        aria-label="Settings"
-      >
-        ⚙
-      </button>
-
-      {/* Phase */}
-      {phase && <div className="seder-phase-pill" style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', background: 'rgba(12,8,18,0.88)', borderRadius: 12, padding: '8px 22px', border: '1px solid rgba(232,197,106,0.15)', zIndex: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.35)' }}>
-        <div style={{ color: 'var(--seder-gold)', fontSize: 15, fontWeight: 600, textAlign: 'center', letterSpacing: '0.04em', fontFamily: 'var(--font-body)' }}>{phase}</div>
+      {phase && <div style={{ position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', background: 'rgba(10,8,5,0.88)', borderRadius: 10, padding: '6px 20px', border: '1px solid #D4A01722', zIndex: 10 }}>
+        <div style={{ color: '#D4A017', fontSize: 15, fontWeight: 600, textAlign: 'center' }}>{phase}</div>
       </div>}
 
-      {/* Speaker + agent */}
-      <div style={{ position: 'absolute', top: 16, left: 16, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 'min(280px, 46vw)' }}>
-        {speaker && (
-          <div className="seder-speaker-box seder-glass-panel" style={{ padding: '10px 14px', borderRadius: 12 }}>
-            <div style={{ color: '#8fd9a8', fontSize: 9, letterSpacing: '0.15em', fontWeight: 600 }}>SPEAKING</div>
-            <div style={{ color: '#E8D5B7', fontSize: 15, fontWeight: 600, fontFamily: 'var(--font-display)' }}>{speakerName}</div>
-            {speakerRole && <div style={{ color: '#8B7355', fontSize: 11, marginTop: 2 }}>{speakerRole}</div>}
-          </div>
-        )}
-        {agentThinking && prefs.useAI && (
-          <div className="seder-agent-orb seder-glass-panel" style={{ padding: '8px 12px', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 16 }}>✨</span>
-            <div>
-              <div style={{ color: 'var(--seder-gold)', fontSize: 10, letterSpacing: '0.12em' }}>AGENT</div>
-              <div style={{ color: '#b8a090', fontSize: 11 }}>Weaving a line…</div>
-            </div>
-          </div>
-        )}
-      </div>
+      {speaker && <div style={{ position: 'absolute', top: 14, left: 14, background: 'rgba(10,8,5,0.85)', borderRadius: 8, padding: '5px 12px', border: '1px solid #3D342833', zIndex: 10 }}>
+        <div style={{ color: '#7EC87E', fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase' as const }}>Speaking</div>
+        <div style={{ color: '#E8D5B7', fontSize: 14, fontWeight: 600 }}>{spkName}</div>
+        {spkRole && <div style={{ color: '#8B7355', fontSize: 10 }}>{spkRole}</div>}
+      </div>}
 
-      {/* Subtitles */}
       {(subtitle.he || subtitle.en) && (
-        <div className="seder-subtitle-box" style={{ position: 'absolute', bottom: 80, left: '50%', transform: 'translateX(-50%)', background: 'rgba(10,6,14,0.92)', borderRadius: 14, padding: '14px 22px', border: '1px solid rgba(232,197,106,0.12)', backdropFilter: 'blur(12px)', zIndex: 10, animation: 'subtIn 0.35s ease' }}>
-          {showHe && subtitle.he && <p className="seder-subtitle-he" style={{ color: '#FAF0E6', fontSize: subFonts.he, lineHeight: 1.75, margin: 0, direction: 'rtl', textAlign: 'right', fontWeight: 300, fontFamily: 'var(--font-body)' }}>{subtitle.he}</p>}
-          {showEn && subtitle.en && <p className="seder-subtitle-en" style={{ color: showHe ? '#b0a090' : '#FAF0E6', fontSize: showHe ? subFonts.en : subFonts.he, lineHeight: 1.55, margin: showHe ? '8px 0 0' : 0, fontStyle: showHe ? 'italic' as const : 'normal' as const }}>{subtitle.en}</p>}
+        <div style={{ position: 'absolute', bottom: 60, left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: 680, background: 'rgba(6,5,3,0.92)', borderRadius: 12, padding: '12px 20px', border: '1px solid #3D342816', backdropFilter: 'blur(10px)', zIndex: 10, animation: 'subtIn 0.25s ease' }}>
+          {showHe && subtitle.he && <p style={{ color: '#FAF0E6', fontSize: 16, lineHeight: 1.7, margin: 0, direction: 'rtl', textAlign: 'right', fontWeight: 300 }}>{subtitle.he}</p>}
+          {showEn && subtitle.en && <p style={{ color: showHe && subtitle.he ? '#B8A88A' : '#FAF0E6', fontSize: showHe && subtitle.he ? 13 : 15, lineHeight: 1.5, margin: showHe && subtitle.he ? '6px 0 0' : 0, fontStyle: showHe && subtitle.he ? 'italic' as const : 'normal' as const }}>{subtitle.en}</p>}
         </div>
       )}
 
-      {/* Controls */}
-      <div className="seder-controls" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(180deg, transparent 0%, rgba(6,4,10,0.97) 28%)', borderTop: '1px solid rgba(232,197,106,0.08)', padding: '10px 12px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 20, gap: 8 }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button type="button" onClick={() => setPaused(p => !p)} style={{ ...bs, background: paused ? '#6b1d2a' : '#1e1610', minWidth: 44, minHeight: 40, color: '#d4c4b0' }}>{paused ? '▶' : '⏸'}</button>
-          <select value={speed} onChange={e => setSpeed(+e.target.value)} style={{ background: '#1e1610', color: 'var(--seder-gold-dim)', border: '1px solid rgba(232,197,106,0.2)', borderRadius: 8, padding: '8px 8px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(6,5,3,0.93)', borderTop: '1px solid #1A1410', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 20, gap: 6 }}>
+        <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+          <button onClick={() => setPaused(p => !p)} style={{ ...bs, background: paused ? '#8B1A1A' : '#2A2118', minWidth: 34 }}>{paused ? '▶' : '⏸'}</button>
+          <select value={speed} onChange={e => setSpeed(+e.target.value)} style={{ background: '#2A2118', color: '#8B7355', border: '1px solid #3D3428', borderRadius: 5, padding: '3px 5px', fontSize: 10, cursor: 'pointer' }}>
             <option value={0.5}>0.5×</option><option value={1}>1×</option><option value={1.5}>1.5×</option><option value={2}>2×</option><option value={3}>3×</option>
           </select>
         </div>
-        <div style={{ flex: 1, margin: '0 8px', minWidth: 0 }}>
-          <div style={{ height: 6, background: 'rgba(0,0,0,0.4)', borderRadius: 4, cursor: 'pointer', overflow: 'hidden' }} onClick={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); const p = (e.clientX - r.left) / r.width; directorRef.current?.skipTo(Math.floor(p * totalBeats)); }}>
-            <div style={{ height: 6, borderRadius: 4, background: 'linear-gradient(90deg, #6b3a5c, var(--seder-gold))', width: `${totalBeats ? (beatIdx / totalBeats) * 100 : 0}%`, transition: 'width 0.35s ease' }} />
+        <div style={{ flex: 1, margin: '0 8px' }}>
+          <div style={{ height: 3, background: '#1A1410', borderRadius: 2, cursor: 'pointer' }} onClick={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); dirRef.current?.skipTo(Math.floor(((e.clientX - r.left) / r.width) * totalBeats)); }}>
+            <div style={{ height: 3, borderRadius: 2, background: '#D4A017', width: `${totalBeats ? (beatIdx / totalBeats) * 100 : 0}%`, transition: 'width 0.3s' }} />
           </div>
-          <div style={{ color: '#6a5a50', fontSize: 10, textAlign: 'center', marginTop: 4, letterSpacing: '0.06em' }}>{beatIdx + 1} / {totalBeats}</div>
+          <div style={{ color: '#5A4D3C', fontSize: 8, textAlign: 'center', marginTop: 2 }}>{beatIdx + 1}/{totalBeats}</div>
         </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <button type="button" onClick={() => setShowHe(h => !h)} style={{ ...bs, background: showHe ? '#2a1a10' : '#14100c', color: showHe ? 'var(--seder-gold)' : '#5a4a40', fontSize: 12 }}>עב</button>
-          <button type="button" onClick={() => setShowEn(e => !e)} style={{ ...bs, background: showEn ? '#2a1a10' : '#14100c', color: showEn ? 'var(--seder-gold)' : '#5a4a40', fontSize: 12 }}>EN</button>
-          <button type="button" onClick={() => setAudioOn(a => !a)} style={{ ...bs, color: audioOn ? 'var(--seder-gold)' : '#5a4a40', minWidth: 40 }}>{audioOn ? '🔊' : '🔇'}</button>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button onClick={() => setShowHe(h => !h)} style={{ ...bs, background: showHe ? '#3A2A10' : '#1A1410', color: showHe ? '#D4A017' : '#5A4D3C', fontSize: 10 }}>עב</button>
+          <button onClick={() => setShowEn(e => !e)} style={{ ...bs, background: showEn ? '#3A2A10' : '#1A1410', color: showEn ? '#D4A017' : '#5A4D3C', fontSize: 10 }}>EN</button>
+          <button onClick={() => setAudioOn(a => !a)} style={{ ...bs, color: audioOn ? '#D4A017' : '#5A4D3C' }}>{audioOn ? '🔊' : '🔇'}</button>
         </div>
       </div>
 
-      {settingsOpen && (
-        <div
-          role="dialog"
-          aria-modal
-          style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(4,2,8,0.82)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
-          onClick={() => setSettingsOpen(false)}
-        >
-          <div className="seder-glass-panel" style={{ maxWidth: 420, width: '100%', padding: 24 }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', color: 'var(--seder-gold)', fontSize: 22, fontWeight: 500 }}>Settings</h2>
-              <button type="button" onClick={() => setSettingsOpen(false)} style={{ background: 'none', border: 'none', color: '#8a7a70', fontSize: 22, cursor: 'pointer' }}>×</button>
-            </div>
-            <p style={{ color: '#7a6a60', fontSize: 13, marginBottom: 16 }}>Changes apply live (camera follows on next frame). Profiles: edit markdown in <code style={{ color: '#9a8a80' }}>public/characters/</code>.</p>
-            <div style={{ color: 'var(--seder-gold-dim)', fontSize: 10, letterSpacing: '0.15em', marginBottom: 8 }}>TRADITION</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-              {(['ashkenazi', 'sephardi'] as const).map(t => (
-                <button key={t} type="button" className="seder-setting-chip" data-active={prefs.tradition === t} onClick={() => patchPrefs({ tradition: t })}>{t === 'ashkenazi' ? 'Ashkenazi' : 'Sephardi'}</button>
-              ))}
-            </div>
-            <div style={{ color: 'var(--seder-gold-dim)', fontSize: 10, letterSpacing: '0.15em', marginBottom: 8 }}>VOICE</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-              {(['en', 'he', 'both'] as const).map(v => (
-                <button key={v} type="button" className="seder-setting-chip" data-active={prefs.speakLang === v} onClick={() => patchPrefs({ speakLang: v })}>{v === 'en' ? 'English' : v === 'he' ? 'עברית' : 'Both'}</button>
-              ))}
-            </div>
-            <div style={{ color: 'var(--seder-gold-dim)', fontSize: 10, letterSpacing: '0.15em', marginBottom: 8 }}>AGENT</div>
-            <div style={{ marginBottom: 16 }}>
-              <button type="button" className="seder-setting-chip" data-active={prefs.useAI} onClick={() => patchPrefs({ useAI: !prefs.useAI })}>{prefs.useAI ? '✨ Claude on' : '📝 Scripted'}</button>
-            </div>
-            <div style={{ color: 'var(--seder-gold-dim)', fontSize: 10, letterSpacing: '0.15em', marginBottom: 8 }}>SUBTITLES</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-              {(['sm', 'md', 'lg'] as const).map(s => (
-                <button key={s} type="button" className="seder-setting-chip" data-active={prefs.subtitleScale === s} onClick={() => patchPrefs({ subtitleScale: s })}>{s.toUpperCase()}</button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              <button type="button" className="seder-setting-chip" data-active={prefs.cinematicCamera} onClick={() => patchPrefs({ cinematicCamera: !prefs.cinematicCamera })}>Cinematic camera</button>
-              <button type="button" className="seder-setting-chip" data-active={prefs.reducedMotion} onClick={() => patchPrefs({ reducedMotion: !prefs.reducedMotion })}>Calm motion</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Done */}
-      {done && <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, rgba(40,20,50,0.5) 0%, rgba(4,2,8,0.95) 65%)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, animation: 'fadeIn 1.5s ease' }}>
-        <div style={{ textAlign: 'center', padding: 24 }}>
-          <div style={{ fontSize: 'clamp(40px,12vw,64px)', marginBottom: 20, filter: 'drop-shadow(0 0 24px rgba(232,197,106,0.3))' }}>🕯️✡️🕯️</div>
-          <h2 style={{ fontFamily: 'var(--font-display)', color: 'var(--seder-gold)', fontSize: 'clamp(1.5rem,5vw,2rem)', fontWeight: 500, margin: '0 0 8px' }}>לְשָׁנָה הַבָּאָה בִּירוּשָׁלָיִם</h2>
-          <p style={{ color: '#FAF0E6', fontSize: 18, margin: '0 0 8px' }}>Next Year in Jerusalem</p>
-          <p style={{ color: '#8B7355', fontSize: 14, margin: '0 0 28px' }}>The Seder is complete. Chag Pesach Sameach!</p>
-          <button type="button" className="seder-btn-primary" onClick={() => window.location.reload()}>Again</button>
+      {done && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, animation: 'fadeIn 2s ease' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 56, marginBottom: 16 }}>🕯️✡️🕯️</div>
+          <h2 style={{ color: '#D4A017', fontSize: 30, fontWeight: 200, margin: '0 0 6px' }}>לְשָׁנָה הַבָּאָה בִּירוּשָׁלָיִם</h2>
+          <p style={{ color: '#FAF0E6', fontSize: 17 }}>Next Year in Jerusalem</p>
+          <p style={{ color: '#8B7355', fontSize: 13, margin: '4px 0 20px' }}>Chag Pesach Sameach!</p>
+          <button onClick={() => window.location.reload()} style={{ background: 'linear-gradient(135deg,#8B1A1A,#4A0A0A)', color: '#FAF0E6', border: 'none', borderRadius: 10, padding: '12px 32px', fontSize: 15, cursor: 'pointer', fontFamily: "'Crimson Pro',serif" }}>Watch Again</button>
         </div>
       </div>}
     </div>
   );
 }
 
-const bs: React.CSSProperties = { background: '#2A2118', border: '1px solid #3D3428', color: '#8B7355', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontSize: 13, fontFamily: "'Crimson Pro',serif" };
+const bs: React.CSSProperties = { background: '#2A2118', border: '1px solid #3D3428', color: '#8B7355', borderRadius: 5, padding: '4px 9px', cursor: 'pointer', fontSize: 12, fontFamily: "'Crimson Pro',serif" };
