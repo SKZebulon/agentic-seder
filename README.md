@@ -129,6 +129,12 @@ The built-in character voices use **library / premade** voice IDs. ElevenLabs on
 
 2. **Or** set `ELEVENLABS_DEFAULT_VOICE_ID` in Vercel to a Voice ID from **My Voices** (your own voice, instant clone, etc.). The app will use that single voice for every character, which avoids the “library voice” restriction for many accounts.
 
+### Hebrew speech (ElevenLabs + browser)
+
+The API must receive `language_code: "he"` for Hebrew text; otherwise the model assumes English and pronunciation sounds wrong. This app sends that automatically for Hebrew lines.
+
+For **browser TTS** fallback, Chrome loads voices asynchronously — the code waits for `voiceschanged` so a Hebrew voice can be selected.
+
 ## 📱 Social Media
 
 Designed to be clipped and shared. Key viral moments:

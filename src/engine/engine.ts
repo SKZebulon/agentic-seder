@@ -79,7 +79,15 @@ export class Engine {
         const r = await fetch('/api/elevenlabs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, voiceId: v.voiceId, stability: v.stability, similarity_boost: 0.75, style: v.style })
+          body: JSON.stringify({
+            text,
+            voiceId: v.voiceId,
+            stability: v.stability,
+            similarity_boost: 0.75,
+            style: v.style,
+            // ISO 639-1 — required or ElevenLabs treats text as English and Hebrew sounds like gibberish
+            language_code: lang === 'he' ? 'he' : 'en',
+          }),
         });
         const ct = r.headers.get('content-type') || '';
         if (r.ok && ct.includes('application/json')) {
@@ -114,16 +122,20 @@ export class Engine {
       } catch (e) { console.warn('EL error:', e); }
     }
 
-    // Fallback: Web Speech
+    // Fallback: Web Speech (Hebrew voices load async in Chrome — wait for voiceschanged)
     if (!this.synth) return;
     return new Promise(res => {
-      this.synth!.cancel();
-      setTimeout(() => {
+      const synth = this.synth!;
+      const run = () => {
+        synth.cancel();
         const u = new SpeechSynthesisUtterance(text);
         u.lang = lang === 'he' ? 'he-IL' : 'en-US';
-        // Try to find a Hebrew voice
         if (lang === 'he') {
-          const heVoice = this.synth!.getVoices().find(v => v.lang?.startsWith('he'));
+          const voices = synth.getVoices();
+          const heVoice = voices.find(v => {
+            const l = (v.lang || '').toLowerCase();
+            return l.startsWith('he') || l.startsWith('iw'); // iw = legacy Hebrew
+          });
           if (heVoice) u.voice = heVoice;
         }
         u.pitch = PITCH[charId] || 1;
@@ -131,8 +143,14 @@ export class Engine {
         const to = setTimeout(res, text.length * 80 + 3000);
         u.onend = () => { clearTimeout(to); res(); };
         u.onerror = () => { clearTimeout(to); res(); };
-        this.synth!.speak(u);
-      }, 50);
+        synth.speak(u);
+      };
+
+      if (lang === 'he' && synth.getVoices().length === 0) {
+        synth.addEventListener('voiceschanged', () => setTimeout(run, 0), { once: true });
+        return;
+      }
+      setTimeout(run, 50);
     });
   }
 

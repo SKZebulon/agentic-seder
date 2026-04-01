@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-/** Prefer widely available models first; Flash may be unavailable on some plans. */
-const MODEL_FALLBACKS = [
-  'eleven_turbo_v2_5',
-  'eleven_multilingual_v2',
-  'eleven_flash_v2_5',
-] as const;
+/** English: turbo first. Hebrew: multilingual first (broad language support + works well with language_code "he"). */
+function modelFallbacks(languageCode?: string) {
+  if (languageCode === 'he') {
+    return ['eleven_multilingual_v2', 'eleven_turbo_v2_5', 'eleven_flash_v2_5'] as const;
+  }
+  return ['eleven_turbo_v2_5', 'eleven_multilingual_v2', 'eleven_flash_v2_5'] as const;
+}
 
 function apiKey() {
   return process.env.ELEVENLABS_API_KEY || process.env.ELEVEN_LABS_API_KEY;
@@ -51,6 +52,8 @@ export async function POST(req: NextRequest) {
     stability?: number;
     similarity_boost?: number;
     style?: number;
+    /** ISO 639-1 — pass "he" for Hebrew or ElevenLabs reads it as English (gibberish). */
+    language_code?: string;
   };
   try {
     body = await req.json();
@@ -58,7 +61,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { text, voiceId: requestedVoiceId, stability, similarity_boost, style } = body;
+  const { text, voiceId: requestedVoiceId, stability, similarity_boost, style, language_code } = body;
+  const lang = (language_code || '').trim().toLowerCase() || undefined;
 
   if (!text?.trim() || !requestedVoiceId) {
     return NextResponse.json({ ok: false, error: 'Missing text or voiceId' }, { status: 400 });
@@ -78,12 +82,22 @@ export async function POST(req: NextRequest) {
   };
 
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+  const models = modelFallbacks(lang);
 
   let lastStatus = 0;
   let lastBody = '';
 
-  for (const model_id of MODEL_FALLBACKS) {
+  for (const model_id of models) {
     try {
+      const payload: Record<string, unknown> = {
+        text,
+        model_id,
+        voice_settings,
+      };
+      if (lang) {
+        payload.language_code = lang;
+      }
+
       const resp = await fetch(url, {
         method: 'POST',
         headers: {
@@ -91,11 +105,7 @@ export async function POST(req: NextRequest) {
           'Content-Type': 'application/json',
           'xi-api-key': key,
         },
-        body: JSON.stringify({
-          text,
-          model_id,
-          voice_settings,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (resp.ok) {
