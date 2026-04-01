@@ -95,14 +95,17 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Environment Variables (optional)
 
-For AI-generated dialogue, you need a Claude API key:
+**Use server-only names** (no `NEXT_PUBLIC_` prefix). Keys with `NEXT_PUBLIC_` are embedded in the browser bundle and can be stolen.
 
 ```bash
-# .env.local
-NEXT_PUBLIC_ANTHROPIC_API_KEY=your_key_here
+# .env.local (or Vercel → Environment Variables)
+ANTHROPIC_API_KEY=your_claude_key          # AI dialogue via /api/dialogue
+ELEVENLABS_API_KEY=your_elevenlabs_key     # optional; natural voices via /api/elevenlabs
 ```
 
-Without an API key, the app uses built-in fallback dialogue — still fun, just not AI-generated.
+Without `ANTHROPIC_API_KEY`, the app uses built-in fallback dialogue — still fun, just not AI-generated.
+
+**Local `npm run dev`:** Environment variables from Vercel are **not** applied automatically. Copy the same keys into **`.env.local`** in the project root (you can duplicate from `.env.example`), then restart the dev server. Until then, dialogue falls back to scripted lines and audio uses the browser’s built-in speech (not ElevenLabs).
 
 ## 🔊 Audio
 
