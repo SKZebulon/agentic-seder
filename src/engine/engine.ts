@@ -66,6 +66,8 @@ export class Engine {
   private audioCtx: AudioContext | null = null;
   /** Active ElevenLabs buffer source (so stop/pause can target it). */
   private activeBufferSource: AudioBufferSourceNode | null = null;
+  private ambientSource: AudioBufferSourceNode | null = null;
+  private ambientGain: GainNode | null = null;
   public hasEL = false;
   public hasAI = false;
   public audioEnabled = true;
@@ -78,7 +80,13 @@ export class Engine {
     hasAI: boolean;
     elevenlabsCustomVoice: boolean;
   }> {
-    if (typeof window !== 'undefined') this.synth = window.speechSynthesis;
+    if (typeof window !== 'undefined') {
+      this.synth = window.speechSynthesis;
+      this.audioCtx = getSharedAudioContext();
+      this.ambientGain = this.audioCtx.createGain();
+      this.ambientGain.gain.value = 0.15;
+      this.ambientGain.connect(this.audioCtx.destination);
+    }
     let elevenlabsCustomVoice = false;
     try {
       const r = await fetch('/api/config');
@@ -96,6 +104,7 @@ export class Engine {
   // If both he and en provided, speaks based on preference
   async speakLine(en: string, he: string, charId: string): Promise<void> {
     if (!this.audioEnabled) return;
+    this.duckAmbient(true);
     const id = charId === 'all' ? 'leader' : charId;
     let text = '';
     let lang: 'en' | 'he' = 'en';
@@ -105,13 +114,49 @@ export class Engine {
     else if (en) { text = en; lang = 'en'; }
     else if (he) { text = he; lang = 'he'; }
 
-    if (!text.trim() || text === '...zzz...') return;
+    if (!text.trim() || text === '...zzz...') {
+      this.duckAmbient(false);
+      return;
+    }
     await this.speakRaw(text, id, lang);
 
     // If "both", also speak English after Hebrew
     if (this.speakLang === 'both' && he && en) {
       await this.speakRaw(en, id, 'en');
     }
+    this.duckAmbient(false);
+  }
+
+  private duckAmbient(duck: boolean) {
+    if (!this.ambientGain || !this.audioCtx) return;
+    const now = this.audioCtx.currentTime;
+    this.ambientGain.gain.setTargetAtTime(duck ? 0.05 : 0.15, now, 0.5);
+  }
+
+  async startAmbient() {
+    if (!this.audioCtx || this.ambientSource) return;
+    try {
+      // White noise / room tone generator as placeholder since we have no assets
+      const bufferSize = 2 * this.audioCtx.sampleRate;
+      const buffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
+      const output = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      
+      // Filter the noise to make it a soft "room tone"
+      const filter = this.audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 400;
+      
+      const src = this.audioCtx.createBufferSource();
+      src.buffer = buffer;
+      src.loop = true;
+      src.connect(filter);
+      filter.connect(this.ambientGain!);
+      src.start();
+      this.ambientSource = src;
+    } catch (e) { console.warn('Ambient fail:', e); }
   }
 
   private async speakRaw(text: string, charId: string, lang: 'en' | 'he'): Promise<void> {
@@ -279,14 +324,14 @@ export class Engine {
   public tradition: 'ashkenazi' | 'sephardi' = 'ashkenazi';
 
   // Agentic dialogue — calls Claude via server proxy
-  async react(ctx: string, chars: string[], phase: string, max: number): Promise<Array<{speaker:string;en:string;he:string}>> {
+  async react(ctx: string, chars: string[], phase: string, max: number, history: string[] = []): Promise<Array<{speaker:string;en:string;he:string}>> {
     const selected = [...chars].sort(() => Math.random() - 0.5).slice(0, max);
     if (this.hasAI) {
       try {
         const r = await fetch('/api/dialogue', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ context: ctx, characters: selected, phase, maxReactions: max, tradition: this.tradition, speakLang: this.speakLang })
+          body: JSON.stringify({ context: ctx, characters: selected, phase, maxReactions: max, tradition: this.tradition, speakLang: this.speakLang, history })
         });
         const d = await r.json();
         if (d.ok && d.reactions?.length) return d.reactions;

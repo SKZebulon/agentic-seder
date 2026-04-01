@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   if (!key) return NextResponse.json({ ok: false, configured: false }, { status: 200 });
 
   try {
-    const { context, characters, phase, maxReactions, tradition, speakLang } = await req.json();
+    const { context, characters, phase, maxReactions, tradition, speakLang, history } = await req.json();
 
     const fileMap: Record<string,string> = {
       leader:'leader',mother:'mother',father:'father',savta:'savta',saba:'saba',
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
         system: SYSTEM_PROMPT,
         messages: [{
           role: 'user',
-          content: `## Seder Phase: ${phase}\n## Tradition: ${traditionNote}\n## Language: ${langNote}\n\n## What Just Happened\n${context}\n\n## Character Profiles\n${profiles}\n\nGenerate ${maxReactions || 2} short, in-character reactions. Remember: the Seder is the star. Characters participate meaningfully.`
+          content: `## Seder Phase: ${phase}\n## Tradition: ${traditionNote}\n## Language: ${langNote}\n\n## Recent Conversation History\n${(history || []).join('\n')}\n\n## What Just Happened\n${context}\n\n## Character Profiles\n${profiles}\n\nGenerate ${maxReactions || 2} short, in-character reactions. Remember: the Seder is the star. Characters participate meaningfully. They can reference the recent conversation history if relevant.`
         }]
       })
     });

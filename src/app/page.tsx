@@ -185,10 +185,88 @@ const SCRIPT: any[] = [
 ];
 
 // CHARACTER SPRITE
-function Char({c,x,y,talking,standing,t}:any){const sc=c.age==='child'?.65:c.age==='teen'?.8:1;const bob=talking?Math.sin(t*6)*2:0;const hBob=talking?Math.sin(t*4)*2:0;const aL=talking?Math.sin(t*3)*15:0;const aR=talking?-Math.sin(t*3.5)*12:0;const yO=standing?-6:0;const mo=talking?Math.abs(Math.sin(t*8))*3:0;return<g transform={`translate(${x},${y+yO+bob}) scale(${sc})`}><ellipse cx={0} cy={30} rx={16} ry={5} fill="rgba(0,0,0,0.25)"/><ellipse cx={0} cy={6} rx={12} ry={16} fill={c.color} stroke="#00000033" strokeWidth={.8}/><path d="M-5,-7 Q0,-4 5,-7" fill="none" stroke="#FFFFFF22" strokeWidth={1}/><g transform={`rotate(${aL} -12 0)`}><line x1={-12} y1={0} x2={-20} y2={14} stroke={c.color} strokeWidth={6} strokeLinecap="round"/><circle cx={-20} cy={15} r={3.5} fill={c.skin}/></g><g transform={`rotate(${aR} 12 0)`}><line x1={12} y1={0} x2={20} y2={14} stroke={c.color} strokeWidth={6} strokeLinecap="round"/><circle cx={20} cy={15} r={3.5} fill={c.skin}/></g><rect x={-3.5} y={-11} width={7} height={5} fill={c.skin} rx={2}/><g transform={`translate(0,${hBob})`}><ellipse cx={0} cy={-20} rx={13} ry={14} fill={c.skin}/>{c.gender==='F'&&c.age!=='elder'?<><ellipse cx={0} cy={-28} rx={14} ry={9} fill={c.hair}/><ellipse cx={-11} cy={-16} rx={4.5} ry={12} fill={c.hair}/><ellipse cx={11} cy={-16} rx={4.5} ry={12} fill={c.hair}/></>:c.age==='elder'&&c.gender==='F'?<><ellipse cx={0} cy={-28} rx={14} ry={8} fill={c.hair}/>{Array.from({length:8}).map((_,i)=>{const a=(i/8)*Math.PI*2;return<circle key={i} cx={Math.cos(a)*10} cy={-26+Math.sin(a)*5} r={3} fill={c.hair}/>})}</>:<ellipse cx={0} cy={-29} rx={12} ry={6} fill={c.hair} opacity={c.age==='elder'?.5:1}/>}{c.kippah&&<ellipse cx={1} cy={-32} rx={7} ry={3.5} fill="#1A1A4A"/>}<ellipse cx={-12.5} cy={-19} rx={2.5} ry={4} fill={c.skin}/><ellipse cx={12.5} cy={-19} rx={2.5} ry={4} fill={c.skin}/>{[-5,5].map(ex=><g key={ex}><ellipse cx={ex} cy={-21} rx={3.2} ry={3.5} fill="white"/><circle cx={ex+(talking?Math.sin(t)*.5:0)} cy={-21} r={2} fill={c.age==='child'?'#4A3520':'#2A1A0A'}/><circle cx={ex+(talking?Math.sin(t)*.5:0)} cy={-21} r={1} fill="#111"/><circle cx={ex+.8} cy={-22} r={.6} fill="white" opacity={.8}/></g>)}<line x1={-7.5} y1={-25} x2={-2.5} y2={-25.5} stroke={c.hair} strokeWidth={1} strokeLinecap="round"/><line x1={2.5} y1={-25.5} x2={7.5} y2={-25} stroke={c.hair} strokeWidth={1} strokeLinecap="round"/><ellipse cx={0} cy={-16} rx={2} ry={1.5} fill={c.skin} stroke="#00000012" strokeWidth={.3}/>{c.age==='child'&&<><circle cx={-7} cy={-15} r={3} fill="#FF8888" opacity={.15}/><circle cx={7} cy={-15} r={3} fill="#FF8888" opacity={.15}/></>}{mo>.5?<ellipse cx={0} cy={-12} rx={3} ry={mo} fill="#884444"/>:<path d="M-3.5,-12 Q0,-10 3.5,-12" stroke="#884444" strokeWidth={.8} fill="none"/>}{c.beard&&<><ellipse cx={0} cy={-8} rx={7} ry={6} fill={c.hair} opacity={.8}/><ellipse cx={0} cy={-12} rx={5} ry={2} fill={c.hair} opacity={.5}/></>}{c.age==='elder'&&c.gender==='M'&&<><circle cx={-5} cy={-21} r={4.5} fill="none" stroke="#555" strokeWidth={.7}/><circle cx={5} cy={-21} r={4.5} fill="none" stroke="#555" strokeWidth={.7}/><line x1={-.5} y1={-21} x2={.5} y2={-21} stroke="#555" strokeWidth={.7}/></>}</g><text x={0} y={40} textAnchor="middle" fill="#C9B89A" fontSize={9} fontWeight={600}>{c.name}</text><text x={0} y={49} textAnchor="middle" fill="#8B7355" fontSize={7}>{c.role}</text></g>}
+function Char({c,x,y,talking,standing,t}:any){
+  const sc=c.age==='child'?.65:c.age==='teen'?.8:1;
+  const bob=talking?Math.sin(t*6)*2:0;
+  const hBob=talking?Math.sin(t*4)*2:0;
+  const aL=talking?Math.sin(t*3)*15:0;
+  const aR=talking?-Math.sin(t*3.5)*12:0;
+  const yO=standing?-6:0;
+  const mo=talking?Math.abs(Math.sin(t*8))*3:0;
+  
+  return (
+    <g transform={`translate(${x},${y+yO+bob}) scale(${sc})`} filter="url(#charShadow)">
+      <defs>
+        <linearGradient id={`grad-body-${c.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor={c.color} />
+          <stop offset="100%" stopColor={c.color} stopOpacity="0.8" />
+        </linearGradient>
+        <radialGradient id={`grad-head-${c.id}`} cx="50%" cy="40%" r="50%">
+          <stop offset="0%" stopColor={c.skin} />
+          <stop offset="100%" stopColor={c.skin} stopOpacity="0.9" />
+        </radialGradient>
+      </defs>
+      <ellipse cx={0} cy={30} rx={16} ry={5} fill="rgba(0,0,0,0.15)"/>
+      <ellipse cx={0} cy={6} rx={12} ry={16} fill={`url(#grad-body-${c.id})`} stroke="#00000022" strokeWidth={.8}/>
+      <path d="M-5,-7 Q0,-4 5,-7" fill="none" stroke="#FFFFFF15" strokeWidth={1}/>
+      <g transform={`rotate(${aL} -12 0)`}>
+        <line x1={-12} y1={0} x2={-20} y2={14} stroke={c.color} strokeWidth={6} strokeLinecap="round"/>
+        <circle cx={-20} cy={15} r={3.5} fill={c.skin}/>
+      </g>
+      <g transform={`rotate(${aR} 12 0)`}>
+        <line x1={12} y1={0} x2={20} y2={14} stroke={c.color} strokeWidth={6} strokeLinecap="round"/>
+        <circle cx={20} cy={15} r={3.5} fill={c.skin}/>
+      </g>
+      <rect x={-3.5} y={-11} width={7} height={5} fill={c.skin} rx={2}/>
+      <g transform={`translate(0,${hBob})`}>
+        <ellipse cx={0} cy={-20} rx={13} ry={14} fill={`url(#grad-head-${c.id})`}/>
+        {c.gender==='F'&&c.age!=='elder'?<><ellipse cx={0} cy={-28} rx={14} ry={9} fill={c.hair}/><ellipse cx={-11} cy={-16} rx={4.5} ry={12} fill={c.hair}/><ellipse cx={11} cy={-16} rx={4.5} ry={12} fill={c.hair}/></>:c.age==='elder'&&c.gender==='F'?<><ellipse cx={0} cy={-28} rx={14} ry={8} fill={c.hair}/>{Array.from({length:8}).map((_,i)=>{const a=(i/8)*Math.PI*2;return<circle key={i} cx={Math.cos(a)*10} cy={-26+Math.sin(a)*5} r={3} fill={c.hair}/>})}</>:<ellipse cx={0} cy={-29} rx={12} ry={6} fill={c.hair} opacity={c.age==='elder'?.5:1}/>}
+        {c.kippah&&<ellipse cx={1} cy={-32} rx={7} ry={3.5} fill="#1A1A4A"/>}
+        <ellipse cx={-12.5} cy={-19} rx={2.5} ry={4} fill={c.skin}/>
+        <ellipse cx={12.5} cy={-19} rx={2.5} ry={4} fill={c.skin}/>
+        {[-5,5].map(ex=><g key={ex}>
+          <ellipse cx={ex} cy={-21} rx={3.2} ry={3.5} fill="white"/>
+          <circle cx={ex+(talking?Math.sin(t)*.5:0)} cy={-21} r={2} fill={c.age==='child'?'#4A3520':'#2A1A0A'}/>
+          <circle cx={ex+(talking?Math.sin(t)*.5:0)} cy={-21} r={1} fill="#111"/>
+          <circle cx={ex+.8} cy={-22} r={.6} fill="white" opacity={.8}/>
+        </g>)}
+        <line x1={-7.5} y1={-25} x2={-2.5} y2={-25.5} stroke={c.hair} strokeWidth={1} strokeLinecap="round"/>
+        <line x1={2.5} y1={-25.5} x2={7.5} y2={-25} stroke={c.hair} strokeWidth={1} strokeLinecap="round"/>
+        <ellipse cx={0} cy={-16} rx={2} ry={1.5} fill={c.skin} stroke="#00000012" strokeWidth={.3}/>
+        {c.age==='child'&&<><circle cx={-7} cy={-15} r={3} fill="#FF8888" opacity={.15}/><circle cx={7} cy={-15} r={3} fill="#FF8888" opacity={.15}/></>}
+        {mo>.5?<ellipse cx={0} cy={-12} rx={3} ry={mo} fill="#884444"/>:<path d="M-3.5,-12 Q0,-10 3.5,-12" stroke="#884444" strokeWidth={.8} fill="none"/>}
+        {c.beard&&<><ellipse cx={0} cy={-8} rx={7} ry={6} fill={c.hair} opacity={.8}/><ellipse cx={0} cy={-12} rx={5} ry={2} fill={c.hair} opacity={.5}/></>}
+        {c.age==='elder'&&c.gender==='M'&&<><circle cx={-5} cy={-21} r={4.5} fill="none" stroke="#555" strokeWidth={.7}/><circle cx={5} cy={-21} r={4.5} fill="none" stroke="#555" strokeWidth={.7}/><line x1={-.5} y1={-21} x2={.5} y2={-21} stroke="#555" strokeWidth={.7}/></>}
+      </g>
+      <text x={0} y={40} textAnchor="middle" fill="#C9B89A" fontSize={9} fontWeight={600}>{c.name}</text>
+      <text x={0} y={49} textAnchor="middle" fill="#8B7355" fontSize={7}>{c.role}</text>
+    </g>
+  );
+}
 
 // ROOM
-function Room({doorOpen}:{doorOpen:boolean}){return<g><rect x={0} y={0} width={1000} height={700} fill="#22190E"/>{Array.from({length:18}).map((_,i)=><rect key={i} x={0} y={i*40} width={1000} height={39} fill={i%2?'#2A1E12':'#2E2114'} stroke="#1E160C" strokeWidth={.5}/>)}<rect x={0} y={0} width={1000} height={70} fill="#3A2E1E"/><rect x={0} y={40} width={1000} height={30} fill="#33271A"/><rect x={30} y={75} width={200} height={80} rx={3} fill="#3D3025" stroke="#4A3C2A" strokeWidth={1}/><rect x={40} y={80} width={50} height={30} rx={2} fill="#555"/>{[55,65,75].map(x=><circle key={x} cx={x} cy={95} r={5} fill="#333"/>)}<rect x={100} y={80} width={40} height={40} rx={2} fill="#D4D4D4"/><rect x={150} y={78} width={70} height={72} rx={3} fill="#E8E0D0"/><text x={130} y={167} textAnchor="middle" fill="#5A4D3C" fontSize={9}>🍳 Kitchen</text><rect x={780} y={73} width={130} height={80} rx={2} fill="#4A3520"/>{[0,1,2].map(r=><g key={r}><rect x={784} y={77+r*25} width={122} height={22} fill="#3D2A15"/>{Array.from({length:8}).map((_,b)=><rect key={b} x={786+b*15} y={77+r*25+(22-(14+b%3*3))} width={10} height={14+b%3*3} rx={1} fill={['#8B1A1A','#1A3A6B','#2E5A37','#6B4A1A','#4A1A5A','#1A5A4A','#8B6B1A','#3A1A1A'][b%8]}/>)}</g>)}<rect x={630} y={8} width={80} height={55} rx={2} fill="#5A4530" stroke="#6B5A40" strokeWidth={2}/><rect x={634} y={12} width={72} height={47} fill="#1A3050"/><rect x={634} y={40} width={72} height={19} fill="#2A5A2A"/><circle cx={680} cy={25} r={8} fill="#FFD700" opacity={.6}/><rect x={820} y={170} width={100} height={50} rx={8} fill="#6B3A2A"/><rect x={820} y={165} width={15} height={55} rx={5} fill="#5A2A1A"/><rect x={905} y={165} width={15} height={55} rx={5} fill="#5A2A1A"/><rect x={940} y={280} width={45} height={80} rx={2} fill={doorOpen?'#1A1A3A':'#5A3D20'} stroke="#6B4E31" strokeWidth={2}/><circle cx={948} cy={320} r={3} fill="#DAA520"/>{doorOpen&&<text x={962} y={325} textAnchor="middle" fill="#FFD70066" fontSize={20}>✨</text>}<ellipse cx={500} cy={400} rx={290} ry={180} fill="#3A2515" stroke="#4A3525" strokeWidth={2}/><ellipse cx={500} cy={400} rx={250} ry={150} fill="#35200F"/><rect x={340} y={230} width={320} height={310} rx={10} fill="#6B4E31" stroke="#7B5E41" strokeWidth={2}/><rect x={348} y={236} width={304} height={298} rx={6} fill="#FAF0E0" opacity={.9}/><circle cx={500} cy={370} r={45} fill="#C8A870" stroke="#A88850" strokeWidth={2}/><circle cx={500} cy={370} r={38} fill="none" stroke="#B89860" strokeWidth={1}/>{[{a:0,c:'#4A7A3A',n:'Karpas'},{a:1,c:'#8B4513',n:'Zeroa'},{a:2,c:'#F5DEB3',n:'Egg'},{a:3,c:'#8B6040',n:'Charoset'},{a:4,c:'#3A6A2A',n:'Maror'},{a:5,c:'#2A5A1A',n:'Chazeret'}].map(({a,c,n},i)=>{const ang=(a/6)*Math.PI*2-Math.PI/2;return<g key={i}><circle cx={500+Math.cos(ang)*22} cy={370+Math.sin(ang)*22} r={6} fill={c}/><text x={500+Math.cos(ang)*22} y={370+Math.sin(ang)*22+2} textAnchor="middle" fill="#00000066" fontSize={3.5}>{n}</text></g>})}{[482,498,514].map(x=><g key={x}><rect x={x} y={260} width={4} height={30} fill="#C0C0C0" rx={1}/><rect x={x} y={248} width={4} height={14} fill="#FFF8DC" rx={1}/><ellipse cx={x+2} cy={246} rx={3} ry={4} fill="#FFD700" opacity={.9}/></g>)}<rect x={390} y={310} width={40} height={30} rx={3} fill="#D2B48C"/><rect x={388} y={308} width={44} height={6} rx={2} fill="#F0E8D8"/><rect x={545} y={295} width={12} height={20} rx={3} fill="#DAA520"/><rect x={543} y={293} width={16} height={4} rx={2} fill="#DAA520"/><text x={551} y={328} textAnchor="middle" fill="#D4A017" fontSize={4}>Elijah</text>{CHARS.map(c=>{const s=c.seat;const dx=s.x<500?25:-25;const dy=s.y<400?20:s.y>450?-15:0;const px=s.x+dx,py=s.y+dy;return<g key={c.id+'ps'}><circle cx={px} cy={py} r={14} fill="#FAF8F0" stroke="#DDD" strokeWidth={.5}/><circle cx={px} cy={py} r={11} fill="none" stroke="#E8E0D0" strokeWidth={.3}/><line x1={px-17} y1={py-8} x2={px-17} y2={py+10} stroke="#C0C0C0" strokeWidth={1}/><line x1={px+17} y1={py-8} x2={px+17} y2={py+10} stroke="#C0C0C0" strokeWidth={1.2}/><ellipse cx={px+20} cy={py-11} rx={4} ry={5} fill="none" stroke="#C8C8C8" strokeWidth={.5}/><ellipse cx={px+20} cy={py-9} rx={3} ry={3} fill="#722F37" opacity={.5}/></g>})}{CHARS.map(c=>{const s=c.seat;return<g key={c.id+'ch'}><rect x={s.x-14} y={s.y-10} width={28} height={22} rx={4} fill="#5A3D20" stroke="#6B4E31" strokeWidth={1}/><rect x={s.x-12} y={s.y-8} width={24} height={18} rx={3} fill="#8B1A1A" opacity={.6}/><rect x={s.x-14} y={s.y-18} width={28} height={10} rx={3} fill="#5A3D20"/></g>})}<radialGradient id="glow" cx="500" cy="260" r="150" gradientUnits="userSpaceOnUse"><stop offset="0%" stopColor="#FFAA33" stopOpacity=".08"/><stop offset="100%" stopColor="#FFAA33" stopOpacity="0"/></radialGradient><rect x={0} y={0} width={1000} height={700} fill="url(#glow)"/></g>}
+function Room({doorOpen,onPlateClick,eaten,cups}:{doorOpen:boolean;onPlateClick?:(item:string)=>void;eaten:string[];cups:Record<string,number>}){return<g><rect x={0} y={0} width={1000} height={700} fill="#22190E"/>{Array.from({length:18}).map((_,i)=><rect key={i} x={0} y={i*40} width={1000} height={39} fill={i%2?'#2A1E12':'#2E2114'} stroke="#1E160C" strokeWidth={.5}/>)}<rect x={0} y={0} width={1000} height={70} fill="#3A2E1E"/><rect x={0} y={40} width={1000} height={30} fill="#33271A"/><rect x={30} y={75} width={200} height={80} rx={3} fill="#3D3025" stroke="#4A3C2A" strokeWidth={1}/><rect x={40} y={80} width={50} height={30} rx={2} fill="#555"/>{[55,65,75].map(x=><circle key={x} cx={x} cy={95} r={5} fill="#333"/>)}<rect x={100} y={80} width={40} height={40} rx={2} fill="#D4D4D4"/><rect x={150} y={78} width={70} height={72} rx={3} fill="#E8E0D0"/><text x={130} y={167} textAnchor="middle" fill="#5A4D3C" fontSize={9}>🍳 Kitchen</text><rect x={780} y={73} width={130} height={80} rx={2} fill="#4A3520"/>{[0,1,2].map(r=><g key={r}><rect x={784} y={77+r*25} width={122} height={22} fill="#3D2A15"/>{Array.from({length:8}).map((_,b)=><rect key={b} x={786+b*15} y={77+r*25+(22-(14+b%3*3))} width={10} height={14+b%3*3} rx={1} fill={['#8B1A1A','#1A3A6B','#2E5A37','#6B4A1A','#4A1A5A','#1A5A4A','#8B6B1A','#3A1A1A'][b%8]}/>)}</g>)}<rect x={630} y={8} width={80} height={55} rx={2} fill="#5A4530" stroke="#6B5A40" strokeWidth={2}/><rect x={634} y={12} width={72} height={47} fill="#1A3050"/><rect x={634} y={40} width={72} height={19} fill="#2A5A2A"/><circle cx={680} cy={25} r={8} fill="#FFD700" opacity={.6}/><rect x={820} y={170} width={100} height={50} rx={8} fill="#6B3A2A"/><rect x={820} y={165} width={15} height={55} rx={5} fill="#5A2A1A"/><rect x={905} y={165} width={15} height={55} rx={5} fill="#5A2A1A"/><rect x={940} y={280} width={45} height={80} rx={2} fill={doorOpen?'#1A1A3A':'#5A3D20'} stroke="#6B4E31" strokeWidth={2}/><circle cx={948} cy={320} r={3} fill="#DAA520"/>{doorOpen&&<text x={962} y={325} textAnchor="middle" fill="#FFD70066" fontSize={20}>✨</text>}<ellipse cx={500} cy={400} rx={290} ry={180} fill="#3A2515" stroke="#4A3525" strokeWidth={2}/><ellipse cx={500} cy={400} rx={250} ry={150} fill="#35200F"/><rect x={340} y={230} width={320} height={310} rx={10} fill="#6B4E31" stroke="#7B5E41" strokeWidth={2}/><rect x={348} y={236} width={304} height={298} rx={6} fill="#FAF0E0" opacity={.9}/><circle cx={500} cy={370} r={45} fill="#C8A870" stroke="#A88850" strokeWidth={2}/><circle cx={500} cy={370} r={38} fill="none" stroke="#B89860" strokeWidth={1}/>{[{a:0,c:'#4A7A3A',n:'Karpas'},{a:1,c:'#8B4513',n:'Zeroa'},{a:2,c:'#F5DEB3',n:'Egg'},{a:3,c:'#8B6040',n:'Charoset'},{a:4,c:'#3A6A2A',n:'Maror'},{a:5,c:'#2A5A1A',n:'Chazeret'}].map(({a,c,n},i)=>{const ang=(a/6)*Math.PI*2-Math.PI/2;const isEaten=eaten.includes(n);return<g key={i} onClick={()=>onPlateClick?.(n)} style={{cursor:'pointer',opacity:isEaten?.2:1,transition:'opacity .5s'}}><circle cx={500+Math.cos(ang)*22} cy={370+Math.sin(ang)*22} r={6} fill={c}/><text x={500+Math.cos(ang)*22} y={370+Math.sin(ang)*22+2} textAnchor="middle" fill="#00000066" fontSize={3.5}>{n}</text></g>})}{[482,498,514].map(x=><g key={x}><rect x={x} y={260} width={4} height={30} fill="#C0C0C0" rx={1}/><rect x={x} y={248} width={4} height={14} fill="#FFF8DC" rx={1}/>      <ellipse cx={x+2} cy={246} rx={3} ry={4} fill="#FFD700" opacity={.9} filter="url(#candleGlow)">
+        <animate attributeName="ry" values="4;5;3.5;4.5;4" dur="3s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.8;1;0.7;0.9;0.8" dur="3s" repeatCount="indefinite" />
+      </ellipse></g>)}<rect x={390} y={310} width={40} height={30} rx={3} fill="#D2B48C"/><rect x={388} y={308} width={44} height={6} rx={2} fill="#F0E8D8"/><rect x={545} y={295} width={12} height={20} rx={3} fill="#DAA520"/><rect x={543} y={293} width={16} height={4} rx={2} fill="#DAA520"/><text x={551} y={328} textAnchor="middle" fill="#D4A017" fontSize={4}>Elijah</text>{CHARS.map(c=>{const s=c.seat;const dx=s.x<500?25:-25;const dy=s.y<400?20:s.y>450?-15:0;const px=s.x+dx,py=s.y+dy;const cupLevel=cups[c.id]||0;return<g key={c.id+'ps'}><circle cx={px} cy={py} r={14} fill="#FAF8F0" stroke="#DDD" strokeWidth={.5}/><circle cx={px} cy={py} r={11} fill="none" stroke="#E8E0D0" strokeWidth={.3}/><line x1={px-17} y1={py-8} x2={px-17} y2={py+10} stroke="#C0C0C0" strokeWidth={1}/><line x1={px+17} y1={py-8} x2={px+17} y2={py+10} stroke="#C0C0C0" strokeWidth={1.2}/><ellipse cx={px+20} cy={py-11} rx={4} ry={5} fill="none" stroke="#C8C8C8" strokeWidth={.5}/><ellipse cx={px+20} cy={py-9+ (5-(cupLevel%5)*1.2)} rx={3} ry={Math.max(0, (cupLevel%5)*0.8)} fill="#722F37" opacity={.5}/></g>})}{[482,498,514].map(x=><g key={x}><rect x={x} y={260} width={4} height={30} fill="#C0C0C0" rx={1}/><rect x={x} y={248} width={4} height={14} fill="#FFF8DC" rx={1}/>      <ellipse cx={x+2} cy={246} rx={3} ry={4} fill="#FFD700" opacity={.9} filter="url(#candleGlow)">
+        <animate attributeName="ry" values="4;5;3.5;4.5;4" dur="3s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.8;1;0.7;0.9;0.8" dur="3s" repeatCount="indefinite" />
+      </ellipse></g>)}<rect x={390} y={310} width={40} height={30} rx={3} fill="#D2B48C"/><rect x={388} y={308} width={44} height={6} rx={2} fill="#F0E8D8"/><rect x={545} y={295} width={12} height={20} rx={3} fill="#DAA520"/><rect x={543} y={293} width={16} height={4} rx={2} fill="#DAA520"/><text x={551} y={328} textAnchor="middle" fill="#D4A017" fontSize={4}>Elijah</text>{CHARS.map(c=>{const s=c.seat;const dx=s.x<500?25:-25;const dy=s.y<400?20:s.y>450?-15:0;const px=s.x+dx,py=s.y+dy;return<g key={c.id+'ps'}><circle cx={px} cy={py} r={14} fill="#FAF8F0" stroke="#DDD" strokeWidth={.5}/><circle cx={px} cy={py} r={11} fill="none" stroke="#E8E0D0" strokeWidth={.3}/><line x1={px-17} y1={py-8} x2={px-17} y2={py+10} stroke="#C0C0C0" strokeWidth={1}/><line x1={px+17} y1={py-8} x2={px+17} y2={py+10} stroke="#C0C0C0" strokeWidth={1.2}/><ellipse cx={px+20} cy={py-11} rx={4} ry={5} fill="none" stroke="#C8C8C8" strokeWidth={.5}/><ellipse cx={px+20} cy={py-9} rx={3} ry={3} fill="#722F37" opacity={.5}/></g>})}{CHARS.map(c=>{const s=c.seat;return<g key={c.id+'ch'}><rect x={s.x-14} y={s.y-10} width={28} height={22} rx={4} fill="#5A3D20" stroke="#6B4E31" strokeWidth={1}/><rect x={s.x-12} y={s.y-8} width={24} height={18} rx={3} fill="#8B1A1A" opacity={.6}/><rect x={s.x-14} y={s.y-18} width={28} height={10} rx={3} fill="#5A3D20"/></g>})}    <radialGradient id="glow" cx="500" cy="260" r="150" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#FFAA33" stopOpacity="1">
+        <animate attributeName="stop-opacity" values="0.08;0.12;0.1;0.14;0.08" dur="4s" repeatCount="indefinite" />
+      </stop>
+      <stop offset="100%" stopColor="#FFAA33" stopOpacity="0"/>
+    </radialGradient>
+    <filter id="charShadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="1.5" floodOpacity="0.3" />
+    </filter>
+    <filter id="candleGlow">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="glow" />
+      <feComposite in="SourceGraphic" in2="glow" operator="over" />
+    </filter>
+    <rect x={0} y={0} width={1000} height={700} fill="url(#glow)"/>
+  </g>}
 
 // BUBBLE
 function Bubble({x,y,text,he,isMobile}:any){if(!text&&!he)return null;const sc=isMobile?.6:1;const bx=Math.max(120*sc,Math.min(1000-120*sc,x));return<foreignObject x={bx-110*sc} y={Math.max(10,y-70*sc)} width={220*sc} height={120*sc} style={{overflow:'visible'}}><div style={{background:'rgba(15,12,8,.94)',border:'1px solid #D4A01755',borderRadius:12*sc,padding:`${7*sc}px ${11*sc}px`,color:'#F5F0E0',fontSize:12*sc,lineHeight:1.4,backdropFilter:'blur(6px)',boxShadow:'0 4px 20px rgba(0,0,0,.5)'}}>{he&&<div style={{direction:'rtl',textAlign:'right',marginBottom:text?4*sc:0,fontSize:13*sc}}>{he}</div>}{text&&<div style={{fontStyle:he?'italic':'normal',color:he?'#B8A88A':'#F5F0E0',fontSize:he?11*sc:12*sc}}>{text}</div>}</div></foreignObject>}
@@ -215,7 +293,10 @@ export default function Seder(){
   const[shH,setShH]=useState(true);
   const[shE,setShE]=useState(true);
   const[audOn,setAudOn]=useState(true);
+  const[cups,setCups]=useState<Record<string,number>>({});
+  const[eaten,setEaten]=useState<string[]>([]);
   const[doorOpen,setDoorOpen]=useState(false);
+  const[cam,setCam]=useState({x:180,y:130,w:640,h:500});
   const[t,setT]=useState(0);
   const[profileChar,setProfileChar]=useState<string|null>(null);
   const[showSettings,setShowSettings]=useState(false);
@@ -242,6 +323,10 @@ export default function Seder(){
     else e.resumePlayback();
   },[paused,go]);
 
+  const[history,setHistory]=useState<string[]>([]);
+  const hRef=useRef<string[]>([]);
+  useEffect(()=>{hRef.current=history},[history]);
+
   const wt=(ms:number)=>new Promise<void>(r=>{const ck=()=>{if(!pRef.current){ms-=16*sRef.current;if(ms<=0)r();else setTimeout(ck,16)}else setTimeout(ck,100)};ck()});
   /** Movement respects pause + speed (faster pace = quicker walks). */
   const mv=(w:string,to:{x:number;y:number},dur:number)=>new Promise<void>(r=>{
@@ -265,31 +350,73 @@ export default function Seder(){
     frame();
   });
 
+  const zoom=(to:{x:number,y:number,w:number,h:number},dur:number)=>new Promise<void>(r=>{
+    const st={...cam};
+    const sp=sRef.current;
+    const n=Math.max(1,Math.round((dur/sp)/16));
+    let step=0;
+    const f=()=>{
+      if(pRef.current){setTimeout(f,100);return}
+      step++;
+      const p=Math.min(1,step/n);
+      const e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+      setCam({
+        x:st.x+(to.x-st.x)*e,
+        y:st.y+(to.y-st.y)*e,
+        w:st.w+(to.w-st.w)*e,
+        h:st.h+(to.h-st.h)*e
+      });
+      if(step<n)requestAnimationFrame(f);else r();
+    };
+    f();
+  });
+
   const run=async()=>{
     const eng=new Engine();await eng.init();
     eng.audioEnabled=audOn;eng.speakLang=speakLang;eng.tradition=tradition;
     eng.playbackSpeed=speed;
     engRef.current=eng;
+    void eng.startAmbient();
 
     for(let i=0;i<SCRIPT.length;i++){
       while(pRef.current)await new Promise(r=>setTimeout(r,200));
       const b=SCRIPT[i];setBi(i);
-      if(b.phase){setPhase(b.phase);setBub(null);setSpk(null);setSub({he:'',en:''});await wt(3000);continue}
+      if(b.phase){
+        setPhase(b.phase);setBub(null);setSpk(null);setSub({he:'',en:''});
+        if(isMobile){
+          if(b.phase.includes('Kadesh')||b.phase.includes('Karpas')||b.phase.includes('Yachatz')) await zoom({x:300,y:200,w:400,h:300},1500);
+          else if(b.phase.includes('Meal')) await zoom({x:200,y:100,w:600,h:450},2000);
+          else if(b.phase.includes('Elijah')) await zoom({x:600,y:150,w:400,h:300},1500);
+          else await zoom({x:180,y:130,w:640,h:500},1500);
+        }
+        await wt(3000);continue;
+      }
       if(b.act==='end'){setDone(true);return}
       if(b.act==='stand'){setStanding(s=>{const ids=b.who==='all'?CHARS.map(c=>c.id):[b.who];return[...new Set([...s,...ids])]});await wt(500);continue}
       if(b.act==='sit'){setStanding(s=>b.who==='all'?[]:s.filter((id:string)=>id!==b.who));await wt(500);continue}
       if(b.act==='move'){await mv(b.who,b.to,b.dur||1000);continue}
-      if(b.act==='drink'||b.act==='eat'){setSub({he:'',en:b.act==='drink'?'Everyone drinks, leaning left! 🍷':'Everyone eats!'});await wt(3000);continue}
+      if(b.act==='drink'||b.act==='eat'){
+        setSub({he:'',en:b.act==='drink'?'Everyone drinks, leaning left! 🍷':'Everyone eats!'});
+        if(b.act==='drink')setCups(prev=>{const n={...prev};CHARS.forEach(c=>n[c.id]=(n[c.id]||0)+1);return n});
+        if(b.act==='eat'){
+          if(phase.includes('Karpas'))setEaten(prev=>[...prev,'Karpas']);
+          if(phase.includes('Maror'))setEaten(prev=>[...prev,'Maror']);
+          if(phase.includes('Korech'))setEaten(prev=>[...prev,'Charoset','Chazeret']);
+          if(phase.includes('Meal'))setEaten(prev=>[...prev,'Zeroa','Egg']);
+        }
+        await wt(3000);continue;
+      }
       if(b.act==='door'){setDoorOpen(true);setSub({he:'',en:'The door opens... the candles flicker... ✨'});await wt(5000);setDoorOpen(false);continue}
 
       // AGENTIC — AI reads .md files, generates unique dialogue
       if(b.react){
-        const rxs=await eng.react(b.ctx,b.chars,phase,b.max||2);
+        const rxs=await eng.react(b.ctx,b.chars,phase,b.max||2,hRef.current);
         for(const rx of rxs){
           if(!rx.en&&!rx.he)continue;
           const c=CM[rx.speaker]||CM.leader;const p=pos[rx.speaker]||c.seat;
           setSpk(rx.speaker);setSub({he:rx.he||'',en:rx.en||''});
           setBub({x:p.x,y:p.y,text:rx.en,he:rx.he});
+          setHistory(prev=>[...prev.slice(-10),`${c.name}: ${rx.en}`]);
           await Promise.race([eng.speakLine(rx.en,rx.he,rx.speaker),wt(Math.max((rx.en||rx.he).length*75,2500))]);
           setSpk(null);setBub(null);await wt(400);
         }
@@ -317,7 +444,11 @@ export default function Seder(){
   // SPLASH
   if(!go)return(
     <div style={{minHeight:'100dvh',background:'radial-gradient(ellipse at 40% 30%,#2A1F14,#0C0906 70%)',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Crimson Pro',Georgia,serif",padding:20}}>
-      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}@keyframes flicker{0%,100%{opacity:1}40%{opacity:.8}}`}</style>
+      <style>{`
+        @keyframes fadeIn{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes flicker{0%,100%{opacity:1;filter:brightness(1)}40%{opacity:.8;filter:brightness(1.2)}60%{opacity:.9;filter:brightness(1.1)}}
+        @keyframes glowFlicker{0%,100%{opacity:.08}40%{opacity:.12}60%{opacity:.1}80%{opacity:.14}}
+      `}</style>
       <div style={{textAlign:'center',animation:'fadeIn 2s',maxWidth:500}}>
         <div style={{fontSize:48,marginBottom:20,display:'flex',justifyContent:'center',gap:32}}><span style={{animation:'flicker 4s infinite'}}>🕯️</span><span style={{animation:'flicker 4s infinite 1s'}}>🕯️</span></div>
         <h1 style={{color:'#FAF0E6',fontSize:isMobile?36:44,fontWeight:200,margin:0}}>The Agentic Seder</h1>
@@ -367,7 +498,18 @@ export default function Seder(){
         <div style={{color:'#5A4D3C',fontSize:9,marginTop:8}}>{svc.hasAI?'🟢 Claude':'⚪ Fallback'} · {svc.hasEL?(svc.elevenlabsCustomVoice?'🟢 EL (custom voice)':'🟢 ElevenLabs'):'⚪ Browser'}</div>
       </div>}
       {profileChar&&<ProfilePanel charId={profileChar} onClose={()=>setProfileChar(null)} isMobile={isMobile}/>}
-      <svg viewBox={isMobile?"180 130 640 500":"0 0 1000 700"} style={{flex:1,width:'100%'}}><Room doorOpen={doorOpen}/>{CHARS.map(c=>{const p=pos[c.id]||c.seat;return<Char key={c.id} c={c} x={p.x} y={p.y} talking={spk===c.id||spk==='all'} standing={standing.includes(c.id)} t={t}/>})}{!isMobile&&bub&&<Bubble x={bub.x} y={bub.y} text={bub.text} he={bub.he} isMobile={isMobile}/>}</svg>
+      <svg viewBox={isMobile?`${cam.x} ${cam.y} ${cam.w} ${cam.h}`:"0 0 1000 700"} style={{flex:1,width:'100%'}}><Room doorOpen={doorOpen} eaten={eaten} cups={cups} onPlateClick={async(item)=>{
+        if(!engRef.current)return;
+        const ctx=`The user clicked on ${item} on the Seder plate. Explain its significance briefly in character.`;
+        const rxs=await engRef.current.react(ctx,['leader','mother','child_wise'],phase,1);
+        for(const rx of rxs){
+          const c=CM[rx.speaker]||CM.leader;const p=pos[rx.speaker]||c.seat;
+          setSpk(rx.speaker);setSub({he:rx.he||'',en:rx.en||''});
+          setBub({x:p.x,y:p.y,text:rx.en,he:rx.he});
+          await Promise.race([engRef.current.speakLine(rx.en,rx.he,rx.speaker),wt(Math.max((rx.en||rx.he).length*75,2500))]);
+          setSpk(null);setBub(null);
+        }
+      }}/>{CHARS.map(c=>{const p=pos[c.id]||c.seat;return<Char key={c.id} c={c} x={p.x} y={p.y} talking={spk===c.id||spk==='all'} standing={standing.includes(c.id)} t={t}/>})}{!isMobile&&bub&&<Bubble x={bub.x} y={bub.y} text={bub.text} he={bub.he} isMobile={isMobile}/>}</svg>
       {(sub.he||sub.en)&&<div style={{position:'absolute',bottom:isMobile?60:44,left:'50%',transform:'translateX(-50%)',width:'92%',maxWidth:620,background:'rgba(8,6,3,.93)',borderRadius:10,padding:'10px 16px',border:'1px solid #D4A01722',zIndex:10}}>{shH&&sub.he&&<p style={{color:'#FAF0E6',fontSize:isMobile?18:15,lineHeight:1.4,margin:0,direction:'rtl',textAlign:'right'}}>{sub.he}</p>}{shE&&sub.en&&<p style={{color:shH&&sub.he?'#B8A88A':'#FAF0E6',fontSize:isMobile?(shH&&sub.he?14:16):(shH&&sub.he?12:14),margin:shH&&sub.he?'4px 0 0':0,fontStyle:shH&&sub.he?'italic':'normal'}}>{sub.en}</p>}</div>}
       <div style={{padding:'5px 10px',background:'rgba(8,6,3,.95)',borderTop:'1px solid #1A1410',display:'flex',justifyContent:'space-between',alignItems:'center',gap:5,flexShrink:0}}>
         <div style={{display:'flex',gap:4,alignItems:'center',flexWrap:'wrap'}}><button onClick={()=>setPaused(p=>!p)} style={bs} title="Pause or resume">{paused?'▶':'⏸'}</button><span style={{color:'#5A4D3C',fontSize:8}}>Pace</span><select value={speed} onChange={e=>setSpeed(+e.target.value)} style={{...bs,fontSize:9,padding:'2px 4px'}} title="Faster pace shortens gaps and speeds up speech"><option value={.5}>0.5×</option><option value={1}>1×</option><option value={1.5}>1.5×</option><option value={2}>2×</option><option value={3}>3×</option><option value={4}>4×</option></select></div>
