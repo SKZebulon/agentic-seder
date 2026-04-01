@@ -1,4 +1,10 @@
 /* Agentic Seder — night / candlelight design tokens */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 :root {
   --seder-bg-deep: #06040a;
   --seder-bg-mid: #0f0a14;
@@ -8,8 +14,60 @@
   --seder-mist: rgba(232, 213, 183, 0.08);
   --seder-glass: rgba(18, 12, 22, 0.72);
   --seder-glow: 0 0 60px rgba(232, 197, 106, 0.15);
-  --font-display: "Cormorant Garamond", "Crimson Pro", Georgia, serif;
-  --font-body: "Crimson Pro", Georgia, serif;
+  --font-display: "Cormorant Garamond", var(--font-crimson), Georgia, serif;
+  --font-body: var(--font-crimson), Georgia, serif;
+}
+
+/* Splash / main UI — avoid inline <style> in client page (hydration + CSP edge cases) */
+@keyframes sederSplashFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sederMainFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sederFlicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  40% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes sederTextGlow {
+  0%,
+  100% {
+    text-shadow: 0 0 10px rgba(212, 160, 23, 0.2);
+  }
+  50% {
+    text-shadow: 0 0 25px rgba(212, 160, 23, 0.4);
+  }
+}
+
+@keyframes sederSubtIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes seder-float {

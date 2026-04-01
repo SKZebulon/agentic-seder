@@ -1,5 +1,4 @@
-// Agentic Dialogue Engine — FIXED
-// Proper API key passing, no caching, context-aware varied fallbacks
+// Agentic Dialogue Engine — prefers server /api/dialogue (Vercel ANTHROPIC_API_KEY), optional client key fallback
 
 export interface Reaction {
   speaker: string;
@@ -10,7 +9,9 @@ export interface Reaction {
 export class DialogueEngine {
   private profiles: Map<string, string> = new Map();
   private usedFallbacks: Map<string, Set<number>> = new Map();
+  /** Optional: browser-only Anthropic key if server has no key */
   public apiKey: string = '';
+  public mood: string = 'balanced';
 
   async loadProfiles(characterIds: string[]): Promise<void> {
     const fileMap: Record<string, string> = {
@@ -23,53 +24,104 @@ export class DialogueEngine {
       try {
         const resp = await fetch(`/characters/${fileMap[id] || id}.md`);
         if (resp.ok) this.profiles.set(id, await resp.text());
-      } catch {}
+      } catch { /* ignore */ }
     }));
-    console.log(`Loaded ${this.profiles.size} character profiles`);
   }
 
   async generateReactions(context: string, characterIds: string[], maxReactions: number, phase: string): Promise<Reaction[]> {
     const selected = [...characterIds].sort(() => Math.random() - 0.5).slice(0, maxReactions);
-    
-    // Try API if key is available
-    if (this.apiKey) {
-      const profiles = selected.map(id => {
-        const p = this.profiles.get(id);
-        return p ? `### ${id}\n${p}` : null;
-      }).filter(Boolean).join('\n---\n');
+    const reactions: Reaction[] = [];
 
-      if (profiles) {
-        try {
-          const resp = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': this.apiKey,
-              'anthropic-version': '2023-06-01',
-              'anthropic-dangerous-direct-browser-access': 'true',
-            },
-            body: JSON.stringify({
-              model: 'claude-sonnet-4-20250514',
-              max_tokens: 1000,
-              system: `Generate natural dialogue for Passover Seder characters. For EACH character, write ONE short reaction (1-2 sentences). Vary tone: funny, touching, sarcastic, mundane. Return ONLY a JSON array: [{"speaker":"id","en":"line","he":""},...]. No markdown.`,
-              messages: [{ role: 'user', content: `Phase: ${phase}\nContext: ${context}\nCharacters: ${selected.join(', ')}\nProfiles:\n${profiles}` }]
-            })
-          });
-          if (resp.ok) {
-            const data = await resp.json();
-            const text = data.content?.map((c: any) => c.text || '').join('') || '';
-            const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
-            const arr = Array.isArray(parsed) ? parsed : [parsed];
-            const reactions = arr.filter((r: any) => r.en || r.he).map((r: any) => ({
-              speaker: r.speaker || selected[0], en: r.en || '', he: r.he || ''
-            }));
-            if (reactions.length > 0) return reactions;
-          }
-        } catch (e) { console.warn('API call failed:', e); }
+    for (const id of selected) {
+      const profile = this.profiles.get(id);
+      if (!profile) {
+        reactions.push(this.generateFallback(id, context));
+        continue;
       }
+
+      let done = false;
+
+      try {
+        const resp = await fetch('/api/dialogue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            context,
+            profile,
+            charId: id,
+            phase,
+            mood: this.mood || 'balanced',
+          }),
+        });
+        if (resp.ok) {
+          const data = await resp.json() as { reaction?: { speaker?: string; en?: string; he?: string } };
+          const r = data.reaction;
+          if (r && (r.en || r.he)) {
+            reactions.push({ speaker: r.speaker || id, en: r.en || '', he: r.he || '' });
+            done = true;
+          }
+        }
+      } catch {
+        /* network */
+      }
+
+      if (done) continue;
+
+      if (this.apiKey) {
+        try {
+          const batch = await this.tryDirectAnthropicBatch(context, [id], phase, profile);
+          if (batch.length) {
+            reactions.push(batch[0]!);
+            continue;
+          }
+        } catch { /* fall through */ }
+      }
+
+      reactions.push(this.generateFallback(id, context));
     }
 
-    return selected.map(id => this.generateFallback(id, context));
+    return reactions;
+  }
+
+  /** Legacy: direct browser → Anthropic (only when user pastes a key and server route unavailable). */
+  private async tryDirectAnthropicBatch(
+    context: string,
+    ids: string[],
+    phase: string,
+    singleProfile: string
+  ): Promise<Reaction[]> {
+    const id = ids[0];
+    if (!id || !this.apiKey) return [];
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': this.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: `Generate ONE short reaction for a Passover Seder character. Return ONLY JSON: {"en":"...","he":"..."}.`,
+        messages: [{
+          role: 'user',
+          content: `Phase: ${phase}\nContext: ${context}\nCharacter: ${id}\nProfile:\n${singleProfile}`,
+        }],
+      }),
+    });
+    if (!resp.ok) return [];
+    const data = await resp.json() as { content?: Array<{ text?: string }> };
+    const text = data.content?.map((c) => c.text || '').join('') || '';
+    try {
+      const cleaned = text.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(cleaned) as { en?: string; he?: string };
+      if (parsed.en || parsed.he) {
+        return [{ speaker: id, en: parsed.en || '', he: parsed.he || '' }];
+      }
+    } catch { /* bad json */ }
+    return [];
   }
 
   generateFallback(charId: string, context: string): Reaction {
@@ -164,7 +216,7 @@ export class DialogueEngine {
 
     const p = pools[charId] || pools['guest'];
     let cat = '_';
-    for (const [key, _] of Object.entries(p)) {
+    for (const [key] of Object.entries(p)) {
       if (key !== '_' && ctx.includes(key)) { cat = key; break; }
     }
     const lines = p[cat] || p['_'] || ['...'];

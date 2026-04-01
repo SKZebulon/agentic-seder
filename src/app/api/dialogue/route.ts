@@ -13,11 +13,9 @@ Keep it SHORT and natural. Real people at dinner don't give speeches.`;
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
+  /** 200 + ok:false avoids browser “failed resource” console spam; client treats as “use fallback”. */
   if (!apiKey) {
-    return NextResponse.json(
-      { error: 'ANTHROPIC_API_KEY is not set' },
-      { status: 503 }
-    );
+    return NextResponse.json({ ok: false, configured: false, reason: 'ANTHROPIC_API_KEY not set on server' });
   }
 
   let body: unknown;
@@ -88,6 +86,7 @@ export async function POST(req: NextRequest) {
     const cleaned = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(cleaned) as { en?: string; he?: string };
     return NextResponse.json({
+      ok: true,
       reaction: {
         speaker: charId,
         en: parsed.en || '',

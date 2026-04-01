@@ -141,9 +141,13 @@ function buildScene(canvas: HTMLCanvasElement) {
   const overhead = new THREE.PointLight(0xFFDDBB, 0.5, 12);
   overhead.position.set(0, 4, 0); overhead.castShadow = true; scene.add(overhead);
 
-  // Warm fill lights
-  scene.add(Object.assign(new THREE.PointLight(0xFF9955, 0.2, 8), { position: new THREE.Vector3(-3, 2, -2) }));
-  scene.add(Object.assign(new THREE.PointLight(0xFF9955, 0.2, 8), { position: new THREE.Vector3(3, 2, -2) }));
+  // Warm fill lights (use .position.set — Object.assign breaks Three.js read-only position)
+  const fillL = new THREE.PointLight(0xff9955, 0.2, 8);
+  fillL.position.set(-3, 2, -2);
+  scene.add(fillL);
+  const fillR = new THREE.PointLight(0xff9955, 0.2, 8);
+  fillR.position.set(3, 2, -2);
+  scene.add(fillR);
 
   // ── CHARACTERS — Built with the CharacterBuilder for detailed humanoid figures ──
   const chars: Record<string, CharMesh> = {};
@@ -175,23 +179,26 @@ function buildScene(canvas: HTMLCanvasElement) {
     const plateX = sx + dirToCenter.x * (Math.abs(sx) > 2 ? 1.5 : 0.8);
     const plateZ = sz + dirToCenter.z * (Math.abs(sz) > 2 ? 0.6 : 0.8);
 
-    // Plate
-    scene.add(Object.assign(new THREE.Mesh(
+    const plate = new THREE.Mesh(
       new THREE.CylinderGeometry(0.12, 0.12, 0.008, 12),
-      new THREE.MeshStandardMaterial({ color: 0xFAF0E6, roughness: 0.7 })
-    ), { position: new THREE.Vector3(plateX, 0.83, plateZ) }));
+      new THREE.MeshStandardMaterial({ color: 0xfaf0e6, roughness: 0.7 })
+    );
+    plate.position.set(plateX, 0.83, plateZ);
+    scene.add(plate);
 
-    // Wine cup
-    scene.add(Object.assign(new THREE.Mesh(
+    const wineCup = new THREE.Mesh(
       new THREE.CylinderGeometry(0.025, 0.018, 0.08, 8),
-      new THREE.MeshStandardMaterial({ color: 0xC0C0C0, metalness: 0.6, roughness: 0.3 })
-    ), { position: new THREE.Vector3(plateX + 0.15, 0.87, plateZ) }));
+      new THREE.MeshStandardMaterial({ color: 0xc0c0c0, metalness: 0.6, roughness: 0.3 })
+    );
+    wineCup.position.set(plateX + 0.15, 0.87, plateZ);
+    scene.add(wineCup);
 
-    // Wine in cup
-    scene.add(Object.assign(new THREE.Mesh(
+    const wineInCup = new THREE.Mesh(
       new THREE.CylinderGeometry(0.022, 0.022, 0.02, 8),
-      new THREE.MeshStandardMaterial({ color: 0x722F37 })
-    ), { position: new THREE.Vector3(plateX + 0.15, 0.89, plateZ) }));
+      new THREE.MeshStandardMaterial({ color: 0x722f37 })
+    );
+    wineInCup.position.set(plateX + 0.15, 0.89, plateZ);
+    scene.add(wineInCup);
 
     chars[ch.id] = {
       built,
@@ -218,8 +225,22 @@ export default function SederPage() {
   const [started, setStarted] = useState(false);
   const [tradition, setTradition] = useState<'ashkenazi' | 'sephardi'>('ashkenazi');
   const [speakLang, setSpeakLang] = useState<'en' | 'he'>('en');
+  /** Optional overrides; production uses Vercel env via /api/* */
   const [apiKey, setApiKey] = useState('');
   const [elevenKey, setElevenKey] = useState('');
+  const [serverCfg, setServerCfg] = useState<{ anthropic: boolean; elevenLabs: boolean } | null>(null);
+  const [showKeyOverrides, setShowKeyOverrides] = useState(false);
+  const [isLocalDev, setIsLocalDev] = useState(false);
+
+  useEffect(() => {
+    setIsLocalDev(['localhost', '127.0.0.1'].includes(window.location.hostname));
+    fetch('/api/config')
+      .then((r) => r.json())
+      .then((d: { anthropic?: boolean; elevenLabs?: boolean }) =>
+        setServerCfg({ anthropic: !!d.anthropic, elevenLabs: !!d.elevenLabs })
+      )
+      .catch(() => setServerCfg({ anthropic: false, elevenLabs: false }));
+  }, []);
 
   const [phase, setPhase] = useState('');
   const [subtitle, setSubtitle] = useState({ he: '', en: '', speaker: '' as string | null });
@@ -240,20 +261,28 @@ export default function SederPage() {
 
     await new Promise(r => setTimeout(r, 300));
 
+    const cfg = await fetch('/api/config')
+      .then((r) => r.json())
+      .then((d: { anthropic?: boolean; elevenLabs?: boolean }) => ({
+        anthropic: !!d.anthropic,
+        elevenLabs: !!d.elevenLabs,
+      }))
+      .catch(() => ({ anthropic: false, elevenLabs: false }));
+
     const audio = new AudioEngine();
-    await audio.init(apiKey ? undefined : undefined); // Web Speech only if no EL key
-    // Try ElevenLabs key from env or input
-    const elKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || elevenKey;
-    if (elKey) {
-      await audio.init(elKey);
+    const clientElKey =
+      (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY) ||
+      elevenKey.trim();
+    if (clientElKey) {
+      await audio.init(clientElKey, false);
     } else {
-      await audio.init();
+      await audio.init(undefined, cfg.elevenLabs);
     }
     audio.speakLang = speakLang;
     audio.enabled = audioOn;
 
     const dialogue = new DialogueEngine();
-    dialogue.apiKey = apiKey;
+    dialogue.apiKey = apiKey.trim();
     await dialogue.loadProfiles(DEFAULT_CHARACTERS.map(c => c.id));
 
     clockRef.current = new THREE.Clock();
@@ -379,7 +408,7 @@ export default function SederPage() {
         if (spk === 'all') Object.keys(sc.chars).forEach(reset);
         else reset(spk);
       },
-    }, !!apiKey);
+    }, true);
 
     dirRef.current = director;
     director.run();
@@ -390,27 +419,23 @@ export default function SederPage() {
 
   const spkName = speaker === 'all' ? 'Everyone' : charMap[speaker || '']?.name || '';
   const spkRole = speaker === 'all' ? '' : charMap[speaker || '']?.role || '';
+  const hasClientElevenLabs = !!elevenKey.trim() || !!process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
 
   // ── SPLASH ──
   if (!started) return (
-    <div style={{ minHeight: '100vh', background: 'radial-gradient(ellipse at 40% 30%,#2A1F14 0%,#0C0906 70%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Crimson Pro',Georgia,serif", padding: 20 }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,200;0,300;0,400;0,600;0,700;1,300&display=swap');
-      @keyframes fadeIn{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
-      @keyframes flicker{0%,100%{opacity:1}40%{opacity:0.8}}
-      @keyframes glow{0%,100%{text-shadow:0 0 10px #D4A01733}50%{text-shadow:0 0 25px #D4A01766}}
-      *{box-sizing:border-box}`}</style>
-      <div style={{ textAlign: 'center', animation: 'fadeIn 2s ease', maxWidth: 520 }}>
-        <div style={{ fontSize: 48, marginBottom: 20, display: 'flex', justifyContent: 'center', gap: 32 }}>
-          <span style={{ animation: 'flicker 4s infinite' }}>🕯️</span>
-          <span style={{ animation: 'flicker 4s infinite 1s' }}>🕯️</span>
+    <div style={{ minHeight: '100vh', background: 'radial-gradient(ellipse at 40% 30%,#2A1F14 0%,#0C0906 70%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ textAlign: 'center', animation: 'sederSplashFadeIn 2s ease', maxWidth: 520 }}>
+        <div style={{ fontSize: 48, marginBottom: 20, display: 'flex', justifyContent: 'center', gap: 32 }} suppressHydrationWarning>
+          <span style={{ animation: 'sederFlicker 4s infinite' }}>🕯️</span>
+          <span style={{ animation: 'sederFlicker 4s infinite 1s' }}>🕯️</span>
         </div>
         <div style={{ color: '#D4A017', fontSize: 11, letterSpacing: 6, textTransform: 'uppercase' as const, marginBottom: 12 }}>A Fully Autonomous 3D AI Seder</div>
-        <h1 style={{ color: '#FAF0E6', fontSize: 48, fontWeight: 200, margin: 0, animation: 'glow 4s infinite' }}>The Agentic Seder</h1>
+        <h1 style={{ color: '#FAF0E6', fontSize: 48, fontWeight: 200, margin: 0, animation: 'sederTextGlow 4s infinite' }}>The Agentic Seder</h1>
         <div style={{ color: '#8B7355', fontSize: 36, margin: '6px 0 20px' }}>הַסֵּדֶר</div>
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 14 }}>
           {(['ashkenazi', 'sephardi'] as const).map(t => (
-            <button key={t} onClick={() => setTradition(t)} style={{ background: tradition === t ? '#D4A01733' : '#1A1410', border: `1px solid ${tradition === t ? '#D4A017' : '#3D3428'}`, color: tradition === t ? '#D4A017' : '#8B7355', borderRadius: 8, padding: '7px 18px', cursor: 'pointer', fontSize: 13, fontFamily: "'Crimson Pro',serif" }}>
+            <button key={t} onClick={() => setTradition(t)} style={{ background: tradition === t ? '#D4A01733' : '#1A1410', border: `1px solid ${tradition === t ? '#D4A017' : '#3D3428'}`, color: tradition === t ? '#D4A017' : '#8B7355', borderRadius: 8, padding: '7px 18px', cursor: 'pointer', fontSize: 13 }}>
               {t === 'ashkenazi' ? 'Ashkenazi' : 'Sephardi'}
             </button>
           ))}
@@ -422,28 +447,66 @@ export default function SederPage() {
           ))}
         </div>
 
-        {/* API Keys */}
-        <div style={{ marginBottom: 20, maxWidth: 380, margin: '0 auto 20px' }}>
-          <input
-            type="password"
-            placeholder="Claude API key (enables AI dialogue)"
-            value={apiKey}
-            onChange={e => setApiKey(e.target.value)}
-            style={{ width: '100%', background: '#1A1410', border: '1px solid #3D3428', borderRadius: 8, padding: '8px 14px', color: '#8B7355', fontSize: 12, outline: 'none', textAlign: 'center', fontFamily: 'monospace', marginBottom: 8 }}
-          />
-          <input
-            type="password"
-            placeholder="ElevenLabs API key (enables natural voices)"
-            value={elevenKey}
-            onChange={e => setElevenKey(e.target.value)}
-            style={{ width: '100%', background: '#1A1410', border: '1px solid #3D3428', borderRadius: 8, padding: '8px 14px', color: '#8B7355', fontSize: 12, outline: 'none', textAlign: 'center', fontFamily: 'monospace' }}
-          />
-          <div style={{ color: '#3D3428', fontSize: 10, marginTop: 6, lineHeight: 1.5 }}>
-            {apiKey ? '🟢 AI dialogue' : '⚪ Fallback dialogue'} · {elevenKey || process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY ? '🟢 Natural voices (ElevenLabs)' : '⚪ Browser voices'}
+        {isLocalDev && serverCfg && (!serverCfg.anthropic || !serverCfg.elevenLabs) && (
+          <div style={{ margin: '0 auto 16px', maxWidth: 440, padding: '12px 14px', borderRadius: 10, border: '1px solid rgba(212,160,23,0.5)', background: 'rgba(36,28,18,0.97)', color: '#b8a898', fontSize: 12, lineHeight: 1.55, textAlign: 'left' }}>
+            <strong style={{ color: '#D4A017' }}>Local dev</strong>
+            {' — '}Vercel env vars are <em>not</em> loaded by <code style={{ fontSize: 11 }}>npm run dev</code>. To get Claude + ElevenLabs here, add a <code style={{ fontSize: 11 }}>.env.local</code> file in this project with the same names as production (<code style={{ fontSize: 11 }}>ANTHROPIC_API_KEY</code>, <code style={{ fontSize: 11 }}>ELEVENLABS_API_KEY</code>), then restart the dev server. Otherwise you will hear <strong>browser TTS</strong> and scripted fallback lines.
           </div>
+        )}
+
+        <div style={{ marginBottom: 20, maxWidth: 420, margin: '0 auto 20px', color: '#6A5D4C', fontSize: 13, lineHeight: 1.6 }}>
+          <p style={{ margin: '0 0 10px' }}>
+            On <strong style={{ color: '#9A8B78' }}>Vercel</strong>, set <code style={{ color: '#8B7355', fontSize: 12 }}>ANTHROPIC_API_KEY</code> and optionally{' '}
+            <code style={{ color: '#8B7355', fontSize: 12 }}>ELEVENLABS_API_KEY</code> — the app uses them on the server (nothing to paste here).
+          </p>
+          <div style={{ color: '#8B7355', fontSize: 12, marginBottom: 10 }}>
+            {serverCfg === null ? (
+              <span>Checking server…</span>
+            ) : (
+              <>
+                AI dialogue: {serverCfg.anthropic || apiKey.trim() ? '🟢' : '⚪'} {serverCfg.anthropic ? 'server' : apiKey.trim() ? 'your key' : 'fallback lines'}
+                {' · '}
+                Voices: {serverCfg.elevenLabs || hasClientElevenLabs ? '🟢' : '⚪'}{' '}
+                {serverCfg.elevenLabs ? 'ElevenLabs (server)' : hasClientElevenLabs ? 'ElevenLabs (browser)' : 'browser TTS'}
+              </>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowKeyOverrides((s) => !s)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#7A6B58',
+              fontSize: 12,
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              marginBottom: showKeyOverrides ? 10 : 0,
+            }}
+          >
+            {showKeyOverrides ? 'Hide' : 'Optional: paste keys locally (overrides / offline dev)'}
+          </button>
+          {showKeyOverrides && (
+            <div style={{ marginTop: 8 }}>
+              <input
+                type="password"
+                placeholder="Anthropic key (only if not on server)"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                style={{ width: '100%', background: '#1A1410', border: '1px solid #3D3428', borderRadius: 8, padding: '8px 14px', color: '#8B7355', fontSize: 12, outline: 'none', textAlign: 'center', fontFamily: 'monospace', marginBottom: 8 }}
+              />
+              <input
+                type="password"
+                placeholder="ElevenLabs key (or use NEXT_PUBLIC_ELEVENLABS_API_KEY)"
+                value={elevenKey}
+                onChange={(e) => setElevenKey(e.target.value)}
+                style={{ width: '100%', background: '#1A1410', border: '1px solid #3D3428', borderRadius: 8, padding: '8px 14px', color: '#8B7355', fontSize: 12, outline: 'none', textAlign: 'center', fontFamily: 'monospace' }}
+              />
+            </div>
+          )}
         </div>
 
-        <button onClick={startSeder} style={{ background: 'linear-gradient(135deg,#8B1A1A,#4A0A0A)', color: '#FAF0E6', border: '1px solid #A0282844', borderRadius: 14, padding: '16px 52px', fontSize: 20, fontFamily: "'Crimson Pro',serif", fontWeight: 300, cursor: 'pointer', boxShadow: '0 6px 40px rgba(139,26,26,0.35)', transition: 'transform 0.2s' }}
+        <button onClick={startSeder} style={{ background: 'linear-gradient(135deg,#8B1A1A,#4A0A0A)', color: '#FAF0E6', border: '1px solid #A0282844', borderRadius: 14, padding: '16px 52px', fontSize: 20, fontWeight: 300, cursor: 'pointer', boxShadow: '0 6px 40px rgba(139,26,26,0.35)', transition: 'transform 0.2s' }}
           onMouseOver={e => (e.currentTarget.style.transform = 'scale(1.05)')} onMouseOut={e => (e.currentTarget.style.transform = 'scale(1)')}>
           Light the Candles
         </button>
@@ -454,10 +517,7 @@ export default function SederPage() {
 
   // ── MAIN ──
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#0C0906', overflow: 'hidden', fontFamily: "'Crimson Pro',Georgia,serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,200;0,300;0,400;0,600;0,700;1,300&display=swap');
-      @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-      @keyframes subtIn{from{opacity:0}to{opacity:1}}*{box-sizing:border-box}`}</style>
+    <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#0C0906', overflow: 'hidden' }}>
 
       <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
 
@@ -472,7 +532,7 @@ export default function SederPage() {
       </div>}
 
       {(subtitle.he || subtitle.en) && (
-        <div style={{ position: 'absolute', bottom: 60, left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: 680, background: 'rgba(6,5,3,0.92)', borderRadius: 12, padding: '12px 20px', border: '1px solid #3D342816', backdropFilter: 'blur(10px)', zIndex: 10, animation: 'subtIn 0.25s ease' }}>
+        <div style={{ position: 'absolute', bottom: 60, left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: 680, background: 'rgba(6,5,3,0.92)', borderRadius: 12, padding: '12px 20px', border: '1px solid #3D342816', backdropFilter: 'blur(10px)', zIndex: 10, animation: 'sederSubtIn 0.25s ease' }}>
           {showHe && subtitle.he && <p style={{ color: '#FAF0E6', fontSize: 16, lineHeight: 1.7, margin: 0, direction: 'rtl', textAlign: 'right', fontWeight: 300 }}>{subtitle.he}</p>}
           {showEn && subtitle.en && <p style={{ color: showHe && subtitle.he ? '#B8A88A' : '#FAF0E6', fontSize: showHe && subtitle.he ? 13 : 15, lineHeight: 1.5, margin: showHe && subtitle.he ? '6px 0 0' : 0, fontStyle: showHe && subtitle.he ? 'italic' as const : 'normal' as const }}>{subtitle.en}</p>}
         </div>
@@ -498,17 +558,17 @@ export default function SederPage() {
         </div>
       </div>
 
-      {done && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, animation: 'fadeIn 2s ease' }}>
+      {done && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, animation: 'sederMainFadeIn 2s ease' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 56, marginBottom: 16 }}>🕯️✡️🕯️</div>
           <h2 style={{ color: '#D4A017', fontSize: 30, fontWeight: 200, margin: '0 0 6px' }}>לְשָׁנָה הַבָּאָה בִּירוּשָׁלָיִם</h2>
           <p style={{ color: '#FAF0E6', fontSize: 17 }}>Next Year in Jerusalem</p>
           <p style={{ color: '#8B7355', fontSize: 13, margin: '4px 0 20px' }}>Chag Pesach Sameach!</p>
-          <button onClick={() => window.location.reload()} style={{ background: 'linear-gradient(135deg,#8B1A1A,#4A0A0A)', color: '#FAF0E6', border: 'none', borderRadius: 10, padding: '12px 32px', fontSize: 15, cursor: 'pointer', fontFamily: "'Crimson Pro',serif" }}>Watch Again</button>
+          <button onClick={() => window.location.reload()} style={{ background: 'linear-gradient(135deg,#8B1A1A,#4A0A0A)', color: '#FAF0E6', border: 'none', borderRadius: 10, padding: '12px 32px', fontSize: 15, cursor: 'pointer' }}>Watch Again</button>
         </div>
       </div>}
     </div>
   );
 }
 
-const bs: React.CSSProperties = { background: '#2A2118', border: '1px solid #3D3428', color: '#8B7355', borderRadius: 5, padding: '4px 9px', cursor: 'pointer', fontSize: 12, fontFamily: "'Crimson Pro',serif" };
+const bs: React.CSSProperties = { background: '#2A2118', border: '1px solid #3D3428', color: '#8B7355', borderRadius: 5, padding: '4px 9px', cursor: 'pointer', fontSize: 12 };

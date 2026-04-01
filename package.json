@@ -4,7 +4,10 @@
   "description": "A fully autonomous 3D Passover Seder experience powered by AI",
   "private": false,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbo",
+    "dev:webpack": "next dev",
+    "dev:clean": "rm -rf .next && next dev --turbo",
+    "clean": "rm -rf .next",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

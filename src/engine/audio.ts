@@ -1,66 +1,11 @@
-// Audio Engine — ElevenLabs TTS with Web Speech API fallback
-// Each character gets a distinct, carefully chosen voice
+// Audio Engine — ElevenLabs TTS (client key or /api/elevenlabs server proxy) + Web Speech fallback
 
 import { charMap } from '@/data/characters';
-
-// ElevenLabs premade voice IDs mapped to Seder characters
-// Chosen to match age, gender, and personality
-const ELEVEN_VOICE_MAP: Record<string, string> = {
-  // Rabbi David (72, male elder) — deep, authoritative, warm narrator
-  leader:       'TxGEqnHWrfWFTfGW9XjX', // Josh — deep, authoritative male
-
-  // Shira (42, female adult) — warm, expressive mother
-  mother:       '21m00Tcm4TlvDq8ikWAM', // Rachel — calm, warm female
-
-  // Avi (44, male adult) — friendly dad voice
-  father:       'ErXwobaYiN019PkySvjV', // Antoni — professional, warm male
-
-  // Savta Esther (74, female elder) — older, emotional woman
-  savta:        'MF3mGyEYCl7XYWbV9V6O', // Elli — emotional, expressive female
-
-  // Saba Yosef (78, male elder) — gruff, old, wise
-  saba:         'VR6AewLTigWG4xSOukaG', // Arnold — crisp, middle-aged male (older feel)
-
-  // Noa (8, female child) — young, high, excited
-  child_young:  'EXAVITQu4vr4xnSDxMaL', // Bella — soft, young female
-
-  // Yael (16, female teen) — studious, clear
-  child_wise:   'AZnzlk1XvdvUeBnXmlld', // Domi — strong, clear young female
-
-  // Dani (15, male teen) — sarcastic teen
-  child_wicked: 'pNInz6obpgDQGcFmaJgB', // Adam — deep young male
-
-  // Eli (6, male child) — small, curious
-  child_simple: 'EXAVITQu4vr4xnSDxMaL', // Bella — soft young (highest pitch setting)
-
-  // Uncle Moshe (48, male) — loud, booming
-  uncle:        'TxGEqnHWrfWFTfGW9XjX', // Josh — deep, powerful
-
-  // Aunt Leah (35, female) — warm, modern
-  aunt:         '21m00Tcm4TlvDq8ikWAM', // Rachel — calm female
-
-  // Ben (28, male) — friendly, curious
-  guest:        'ErXwobaYiN019PkySvjV', // Antoni — warm male
-};
-
-// Voice settings per character — stability + similarity + style
-const VOICE_SETTINGS: Record<string, { stability: number; similarity_boost: number; style?: number }> = {
-  leader:       { stability: 0.7, similarity_boost: 0.8, style: 0.3 },
-  mother:       { stability: 0.6, similarity_boost: 0.75, style: 0.4 },
-  father:       { stability: 0.65, similarity_boost: 0.75, style: 0.3 },
-  savta:        { stability: 0.5, similarity_boost: 0.7, style: 0.6 },  // more emotional
-  saba:         { stability: 0.7, similarity_boost: 0.8, style: 0.2 },
-  child_young:  { stability: 0.4, similarity_boost: 0.7, style: 0.7 },  // expressive
-  child_wise:   { stability: 0.65, similarity_boost: 0.8, style: 0.3 },
-  child_wicked: { stability: 0.5, similarity_boost: 0.75, style: 0.6 }, // sarcastic range
-  child_simple: { stability: 0.4, similarity_boost: 0.65, style: 0.7 }, // wonder
-  uncle:        { stability: 0.4, similarity_boost: 0.7, style: 0.8 },  // LOUD and expressive
-  aunt:         { stability: 0.6, similarity_boost: 0.75, style: 0.3 },
-  guest:        { stability: 0.65, similarity_boost: 0.8, style: 0.3 },
-};
+import { ELEVEN_VOICE_MAP, ELEVEN_VOICE_SETTINGS } from '@/lib/elevenlabs-config';
 
 export class AudioEngine {
   private elevenLabsKey: string = '';
+  private useServerElevenLabs = false;
   private audioContext: AudioContext | null = null;
   private currentSource: AudioBufferSourceNode | null = null;
   
@@ -72,8 +17,11 @@ export class AudioEngine {
   public speakLang: 'en' | 'he' | 'both' = 'en';
   public useElevenLabs: boolean = false;
 
-  async init(elevenLabsKey?: string): Promise<void> {
-    // Web Speech fallback
+  /**
+   * @param elevenLabsKey — optional; if set, calls ElevenLabs directly from the browser
+   * @param useServerElevenLabs — if true (and no client key), audio goes through POST /api/elevenlabs (Vercel env)
+   */
+  async init(elevenLabsKey?: string, useServerElevenLabs?: boolean): Promise<void> {
     if (typeof window !== 'undefined') {
       this.synth = window.speechSynthesis;
       this.voices = await new Promise<SpeechSynthesisVoice[]>(resolve => {
@@ -87,15 +35,16 @@ export class AudioEngine {
       });
     }
 
-    // ElevenLabs
     if (elevenLabsKey) {
       this.elevenLabsKey = elevenLabsKey;
+      this.useServerElevenLabs = false;
       this.useElevenLabs = true;
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      console.log('ElevenLabs audio initialized');
+    } else if (useServerElevenLabs) {
+      this.useServerElevenLabs = true;
+      this.useElevenLabs = true;
+      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
-    
-    console.log(`Audio: ElevenLabs=${this.useElevenLabs}, WebSpeech voices=${this.voices.length}`);
   }
 
   async speak(text: string, characterId: string, lang?: 'he' | 'en'): Promise<void> {
@@ -116,29 +65,46 @@ export class AudioEngine {
   }
 
   private async speakElevenLabs(text: string, characterId: string): Promise<void> {
-    const voiceId = ELEVEN_VOICE_MAP[characterId] || ELEVEN_VOICE_MAP['leader'];
-    const settings = VOICE_SETTINGS[characterId] || VOICE_SETTINGS['leader'];
+    let response: Response;
 
-    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'xi-api-key': this.elevenLabsKey,
-      },
-      body: JSON.stringify({
-        text: text,
-        model_id: 'eleven_flash_v2_5', // Fast model for low latency
-        voice_settings: {
-          stability: settings.stability,
-          similarity_boost: settings.similarity_boost,
-          style: settings.style || 0.3,
-          use_speaker_boost: true,
+    if (this.useServerElevenLabs) {
+      response = await fetch('/api/elevenlabs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, characterId }),
+      });
+      const ct = response.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const j = (await response.json()) as { ok?: boolean };
+        if (j.ok === false) {
+          throw new Error('ElevenLabs not configured on server (add ELEVENLABS_API_KEY to .env.local for local dev)');
         }
-      })
-    });
+        throw new Error('Unexpected JSON from /api/elevenlabs');
+      }
+    } else {
+      const voiceId = ELEVEN_VOICE_MAP[characterId] || ELEVEN_VOICE_MAP.leader;
+      const settings = ELEVEN_VOICE_SETTINGS[characterId] || ELEVEN_VOICE_SETTINGS.leader;
+      response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'xi-api-key': this.elevenLabsKey,
+        },
+        body: JSON.stringify({
+          text,
+          model_id: 'eleven_flash_v2_5',
+          voice_settings: {
+            stability: settings.stability,
+            similarity_boost: settings.similarity_boost,
+            style: settings.style || 0.3,
+            use_speaker_boost: true,
+          },
+        }),
+      });
+    }
 
     if (!response.ok) {
-      throw new Error(`ElevenLabs API error: ${response.status}`);
+      throw new Error(`ElevenLabs error: ${response.status}`);
     }
 
     const arrayBuffer = await response.arrayBuffer();

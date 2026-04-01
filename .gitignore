@@ -9,6 +9,8 @@ out/
 .env
 .env.local
 .env.*.local
+# Common typo — still ignore if someone names the file without the leading dot
+env.local
 
 # Debug / OS
 npm-debug.log*
