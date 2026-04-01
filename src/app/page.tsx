@@ -227,13 +227,46 @@ export default function Seder(){
   useEffect(()=>{sRef.current=speed},[speed]);
   useEffect(()=>{if(!go)return;let r:number;const f=()=>{setT(v=>v+.016);r=requestAnimationFrame(f)};r=requestAnimationFrame(f);return()=>cancelAnimationFrame(r)},[go]);
   useEffect(()=>{new Engine().init().then(setSvc)},[]);
+  useEffect(()=>{
+    const e=engRef.current;
+    if(!e||!go)return;
+    e.playbackSpeed=speed;
+    e.syncPlaybackSpeed();
+  },[speed,go]);
+  useEffect(()=>{
+    const e=engRef.current;
+    if(!e||!go)return;
+    if(paused)e.pausePlayback();
+    else e.resumePlayback();
+  },[paused,go]);
 
   const wt=(ms:number)=>new Promise<void>(r=>{const ck=()=>{if(!pRef.current){ms-=16*sRef.current;if(ms<=0)r();else setTimeout(ck,16)}else setTimeout(ck,100)};ck()});
-  const mv=(w:string,to:{x:number;y:number},d:number)=>new Promise<void>(r=>{const st={...(pos[w]||CM[w]?.seat||{x:500,y:400})};let step=0;const n=Math.max(1,Math.floor(d/30));const go=()=>{step++;const p=Math.min(1,step/n);const e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;setPos(prev=>({...prev,[w]:{x:st.x+(to.x-st.x)*e,y:st.y+(to.y-st.y)*e}}));if(step<n)setTimeout(go,30);else r()};go()});
+  /** Movement respects pause + speed (faster pace = quicker walks). */
+  const mv=(w:string,to:{x:number;y:number},dur:number)=>new Promise<void>(r=>{
+    const st={...(pos[w]||CM[w]?.seat||{x:500,y:400})};
+    const sp=sRef.current;
+    const totalMs=dur/sp;
+    const tickMs=Math.max(8,30/sp);
+    const n=Math.max(1,Math.round(totalMs/tickMs));
+    let step=0;
+    const frame=()=>{
+      const tick=()=>{
+        if(pRef.current){setTimeout(tick,100);return}
+        step++;
+        const p=Math.min(1,step/n);
+        const e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+        setPos(prev=>({...prev,[w]:{x:st.x+(to.x-st.x)*e,y:st.y+(to.y-st.y)*e}}));
+        if(step<n)setTimeout(frame,tickMs);else r();
+      };
+      tick();
+    };
+    frame();
+  });
 
   const run=async()=>{
     const eng=new Engine();await eng.init();
     eng.audioEnabled=audOn;eng.speakLang=speakLang;eng.tradition=tradition;
+    eng.playbackSpeed=speed;
     engRef.current=eng;
 
     for(let i=0;i<SCRIPT.length;i++){
@@ -331,7 +364,7 @@ export default function Seder(){
       <svg viewBox="0 0 1000 700" style={{flex:1,width:'100%'}}><Room doorOpen={doorOpen}/>{CHARS.map(c=>{const p=pos[c.id]||c.seat;return<Char key={c.id} c={c} x={p.x} y={p.y} talking={spk===c.id||spk==='all'} standing={standing.includes(c.id)} t={t}/>})}{bub&&<Bubble x={bub.x} y={bub.y} text={bub.text} he={bub.he}/>}</svg>
       {(sub.he||sub.en)&&<div style={{position:'absolute',bottom:44,left:'50%',transform:'translateX(-50%)',width:'88%',maxWidth:620,background:'rgba(8,6,3,.93)',borderRadius:10,padding:'8px 16px',border:'1px solid #D4A01722',zIndex:10}}>{shH&&sub.he&&<p style={{color:'#FAF0E6',fontSize:14,lineHeight:1.6,margin:0,direction:'rtl',textAlign:'right'}}>{sub.he}</p>}{shE&&sub.en&&<p style={{color:shH&&sub.he?'#B8A88A':'#FAF0E6',fontSize:shH&&sub.he?11:13,margin:shH&&sub.he?'3px 0 0':0,fontStyle:shH&&sub.he?'italic':'normal'}}>{sub.en}</p>}</div>}
       <div style={{padding:'5px 10px',background:'rgba(8,6,3,.95)',borderTop:'1px solid #1A1410',display:'flex',justifyContent:'space-between',alignItems:'center',gap:5,flexShrink:0}}>
-        <div style={{display:'flex',gap:4,alignItems:'center'}}><button onClick={()=>setPaused(p=>!p)} style={bs}>{paused?'▶':'⏸'}</button><select value={speed} onChange={e=>setSpeed(+e.target.value)} style={{...bs,fontSize:9,padding:'2px 4px'}}><option value={.5}>0.5×</option><option value={1}>1×</option><option value={1.5}>1.5×</option><option value={2}>2×</option><option value={3}>3×</option></select></div>
+        <div style={{display:'flex',gap:4,alignItems:'center',flexWrap:'wrap'}}><button onClick={()=>setPaused(p=>!p)} style={bs} title="Pause or resume">{paused?'▶':'⏸'}</button><span style={{color:'#5A4D3C',fontSize:8}}>Pace</span><select value={speed} onChange={e=>setSpeed(+e.target.value)} style={{...bs,fontSize:9,padding:'2px 4px'}} title="Faster pace shortens gaps and speeds up speech"><option value={.5}>0.5×</option><option value={1}>1×</option><option value={1.5}>1.5×</option><option value={2}>2×</option><option value={3}>3×</option><option value={4}>4×</option></select></div>
         <div style={{flex:1,margin:'0 8px'}}><div style={{height:3,background:'#1A1410',borderRadius:2}}><div style={{height:3,borderRadius:2,background:'#D4A017',width:`${SCRIPT.length?(bi/SCRIPT.length)*100:0}%`,transition:'width .3s'}}/></div><div style={{color:'#5A4D3C',fontSize:7,textAlign:'center',marginTop:1}}>{bi+1}/{SCRIPT.length}</div></div>
         <div style={{display:'flex',gap:3}}><button onClick={()=>setShH(h=>!h)} style={{...bs,background:shH?'#3A2A10':'#1A1410',color:shH?'#D4A017':'#5A4D3C',fontSize:9}}>עב</button><button onClick={()=>setShE(e=>!e)} style={{...bs,background:shE?'#3A2A10':'#1A1410',color:shE?'#D4A017':'#5A4D3C',fontSize:9}}>EN</button><button onClick={()=>{setAudOn(a=>!a);engRef.current?.stop()}} style={{...bs,color:audOn?'#D4A017':'#5A4D3C'}}>{audOn?'🔊':'🔇'}</button></div>
       </div>

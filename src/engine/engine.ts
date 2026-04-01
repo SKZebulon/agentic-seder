@@ -25,10 +25,14 @@ const PITCH: Record<string, number> = {
 export class Engine {
   private synth: SpeechSynthesis | null = null;
   private audioCtx: AudioContext | null = null;
+  /** Active ElevenLabs buffer source (so stop/pause can target it). */
+  private activeBufferSource: AudioBufferSourceNode | null = null;
   public hasEL = false;
   public hasAI = false;
   public audioEnabled = true;
   public speakLang: 'en' | 'he' | 'both' = 'en'; // which language to SPEAK aloud
+  /** Playback rate for TTS (1 = normal). Synced from UI speed control. */
+  public playbackSpeed = 1;
 
   async init(): Promise<{
     hasEL: boolean;
@@ -112,9 +116,18 @@ export class Engine {
             const buf = await this.audioCtx.decodeAudioData(ab);
             return new Promise(res => {
               const src = this.audioCtx!.createBufferSource();
-              src.buffer = buf; src.connect(this.audioCtx!.destination);
-              const to = setTimeout(res, buf.duration * 1000 + 1500);
-              src.onended = () => { clearTimeout(to); res(); };
+              this.activeBufferSource = src;
+              const rate = Math.min(4, Math.max(0.5, this.playbackSpeed));
+              src.playbackRate.value = rate;
+              src.buffer = buf;
+              src.connect(this.audioCtx!.destination);
+              const wallMs = (buf.duration / rate) * 1000 + 800;
+              const to = setTimeout(res, wallMs);
+              src.onended = () => {
+                clearTimeout(to);
+                if (this.activeBufferSource === src) this.activeBufferSource = null;
+                res();
+              };
               src.start();
             });
           }
@@ -139,7 +152,8 @@ export class Engine {
           if (heVoice) u.voice = heVoice;
         }
         u.pitch = PITCH[charId] || 1;
-        u.rate = lang === 'he' ? 0.85 : 0.9;
+        const base = lang === 'he' ? 0.85 : 0.9;
+        u.rate = Math.min(2, Math.max(0.3, base * Math.min(4, Math.max(0.5, this.playbackSpeed))));
         const to = setTimeout(res, text.length * 80 + 3000);
         u.onend = () => { clearTimeout(to); res(); };
         u.onerror = () => { clearTimeout(to); res(); };
@@ -154,7 +168,66 @@ export class Engine {
     });
   }
 
-  stop() { this.synth?.cancel(); }
+  /** Stop TTS immediately (buffer + Web Speech). */
+  stop() {
+    this.stopBufferOnly();
+    try {
+      this.synth?.cancel();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private stopBufferOnly() {
+    if (this.activeBufferSource) {
+      try {
+        this.activeBufferSource.stop();
+      } catch {
+        /* ignore */
+      }
+      this.activeBufferSource = null;
+    }
+  }
+
+  /** Pause ongoing speech (ElevenLabs buffer + Web Speech). */
+  pausePlayback() {
+    try {
+      void this.audioCtx?.suspend();
+    } catch {
+      /* ignore */
+    }
+    try {
+      this.synth?.pause();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Resume after pause. */
+  resumePlayback() {
+    try {
+      void this.audioCtx?.resume();
+    } catch {
+      /* ignore */
+    }
+    try {
+      this.synth?.resume();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Apply speed to live ElevenLabs buffer if playing. */
+  syncPlaybackSpeed() {
+    const r = Math.min(4, Math.max(0.5, this.playbackSpeed));
+    if (this.activeBufferSource) {
+      try {
+        this.activeBufferSource.playbackRate.value = r;
+      } catch {
+        /* ignore */
+      }
+    }
+  }
 
   public tradition: 'ashkenazi' | 'sephardi' = 'ashkenazi';
 
