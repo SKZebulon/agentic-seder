@@ -1,0 +1,14 @@
+[
+  { "id":"leader", "name":"Rabbi David", "role":"Seder Leader", "seat":{"x":500,"y":230}, "color":"#F5F0DC", "hair":"#AAA", "skin":"#C9A87C", "gender":"M", "age":"elder", "kippah":true, "beard":true },
+  { "id":"mother", "name":"Shira", "role":"Mom", "seat":{"x":320,"y":260}, "color":"#7B3F7B", "hair":"#4A2F1C", "skin":"#D2A679", "gender":"F", "age":"adult" },
+  { "id":"father", "name":"Avi", "role":"Dad", "seat":{"x":680,"y":260}, "color":"#2F4F4F", "hair":"#3B2F1C", "skin":"#BE8C63", "gender":"M", "age":"adult", "kippah":true },
+  { "id":"savta", "name":"Savta Esther", "role":"Grandma", "seat":{"x":240,"y":340}, "color":"#8B2040", "hair":"#C0C0C0", "skin":"#C9A87C", "gender":"F", "age":"elder" },
+  { "id":"saba", "name":"Saba Yosef", "role":"Grandpa", "seat":{"x":760,"y":340}, "color":"#2C2C54", "hair":"#AAA", "skin":"#C49B6C", "gender":"M", "age":"elder", "kippah":true, "beard":true },
+  { "id":"uncle", "name":"Dod Moshe", "role":"Uncle", "seat":{"x":220,"y":440}, "color":"#4A6B2F", "hair":"#2B1F14", "skin":"#C49B6C", "gender":"M", "age":"adult", "kippah":true },
+  { "id":"aunt", "name":"Doda Leah", "role":"Aunt", "seat":{"x":780,"y":440}, "color":"#B8860B", "hair":"#8B4513", "skin":"#BE8C63", "gender":"F", "age":"young" },
+  { "id":"child_wise", "name":"Yael", "role":"16 yrs", "seat":{"x":260,"y":530}, "color":"#2E8B57", "hair":"#3B2F1C", "skin":"#D2A679", "gender":"F", "age":"teen" },
+  { "id":"child_wicked", "name":"Dani", "role":"15 yrs", "seat":{"x":740,"y":530}, "color":"#222", "hair":"#2B1F14", "skin":"#BE8C63", "gender":"M", "age":"teen" },
+  { "id":"child_young", "name":"Noa", "role":"8 yrs", "seat":{"x":350,"y":580}, "color":"#E85D9A", "hair":"#5C3317", "skin":"#DEB887", "gender":"F", "age":"child" },
+  { "id":"child_simple", "name":"Eli", "role":"6 yrs", "seat":{"x":650,"y":580}, "color":"#3A6BC5", "hair":"#7A4E2D", "skin":"#DEB887", "gender":"M", "age":"child", "kippah":true },
+  { "id":"guest", "name":"Ben", "role":"Guest", "seat":{"x":500,"y":610}, "color":"#607080", "hair":"#463E2E", "skin":"#D2A679", "gender":"M", "age":"young", "kippah":true }
+]

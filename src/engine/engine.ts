@@ -40,7 +40,22 @@ export function unlockWebAudio(): void {
   }
 }
 
-const VOICES: Record<string, { voiceId: string; stability: number; style: number }> = {
+const VOICE_POOL: Record<string, Record<string, string>> = {
+  M: {
+    child: 'EXAVITQu4vr4xnSDxMaL', // Bella (pitched up)
+    teen: 'ErXwobaYiN019PkySvjV',  // Antoni
+    adult: 'ErXwobaYiN019PkySvjV', // Antoni
+    elder: 'TxGEqnHWrfWFTfGW9XjX', // Josh
+  },
+  F: {
+    child: 'EXAVITQu4vr4xnSDxMaL', // Bella
+    teen: 'AZnzlk1XvdvUeBnXmlld',  // Domi
+    adult: '21m00Tcm4TlvDq8ikWAM', // Rachel
+    elder: 'MF3mGyEYCl7XYWbV9V6O', // Elli
+  }
+};
+
+const DEFAULT_VOICES: Record<string, { voiceId: string; stability: number; style: number }> = {
   leader:      { voiceId: 'TxGEqnHWrfWFTfGW9XjX', stability: 0.7, style: 0.3 },
   mother:      { voiceId: '21m00Tcm4TlvDq8ikWAM', stability: 0.6, style: 0.4 },
   father:      { voiceId: 'ErXwobaYiN019PkySvjV', stability: 0.65, style: 0.3 },
@@ -74,6 +89,7 @@ export class Engine {
   public speakLang: 'en' | 'he' | 'both' = 'en'; // which language to SPEAK aloud
   /** Playback rate for TTS (1 = normal). Synced from UI speed control. */
   public playbackSpeed = 1;
+  public chars: any[] = [];
 
   async init(): Promise<{
     hasEL: boolean;
@@ -94,10 +110,28 @@ export class Engine {
       this.hasEL = !!cfg.elevenlabs;
       this.hasAI = !!cfg.anthropic;
       elevenlabsCustomVoice = !!cfg.elevenlabsCustomVoice;
+
+      const cr = await fetch('/api/characters?type=all');
+      this.chars = await cr.json();
     } catch {
       /* ignore */
     }
     return { hasEL: this.hasEL, hasAI: this.hasAI, elevenlabsCustomVoice };
+  }
+
+  private getVoice(charId: string) {
+    const char = this.chars.find(c => c.id === charId);
+    if (!char) return DEFAULT_VOICES.leader;
+    
+    const pool = VOICE_POOL[char.gender] || VOICE_POOL.M;
+    const voiceId = pool[char.age] || pool.adult;
+    
+    // Use default settings but custom voiceId if metadata changed
+    return { 
+      voiceId, 
+      stability: DEFAULT_VOICES[charId]?.stability || 0.6, 
+      style: DEFAULT_VOICES[charId]?.style || 0.4 
+    };
   }
 
   // Speak text — picks language based on speakLang setting
@@ -106,24 +140,26 @@ export class Engine {
     if (!this.audioEnabled) return;
     this.duckAmbient(true);
     const id = charId === 'all' ? 'leader' : charId;
+    
+    // Logic:
+    // 1. If it's a prayer (he exists and it's fixed liturgy), always speak Hebrew.
+    // 2. If it's conversation (react), speak based on speakLang setting.
+    // 3. If speakLang is 'both', speak Hebrew then English.
+    
+    const isPrayer = !!he && !en.includes(':'); // Heuristic: conversation usually has "Name: ..." or is generated
+    
     let text = '';
     let lang: 'en' | 'he' = 'en';
 
-    if (this.speakLang === 'he' && he) { text = he; lang = 'he'; }
-    else if (this.speakLang === 'both' && he) { text = he; lang = 'he'; } // speak Hebrew first
-    else if (en) { text = en; lang = 'en'; }
-    else if (he) { text = he; lang = 'he'; }
-
-    if (!text.trim() || text === '...zzz...') {
-      this.duckAmbient(false);
-      return;
-    }
-    await this.speakRaw(text, id, lang);
-
-    // If "both", also speak English after Hebrew
-    if (this.speakLang === 'both' && he && en) {
+    if (he && (this.speakLang === 'he' || this.speakLang === 'both' || isPrayer)) {
+      await this.speakRaw(he, id, 'he');
+      if (this.speakLang === 'both' && en) {
+        await this.speakRaw(en, id, 'en');
+      }
+    } else if (en) {
       await this.speakRaw(en, id, 'en');
     }
+
     this.duckAmbient(false);
   }
 
@@ -163,7 +199,7 @@ export class Engine {
     // ElevenLabs (works for both languages — their multilingual model handles Hebrew)
     if (this.hasEL) {
       try {
-        const v = VOICES[charId] || VOICES.leader;
+        const v = this.getVoice(charId);
         const r = await fetch('/api/elevenlabs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -243,7 +279,8 @@ export class Engine {
           });
           if (enVoice) u.voice = enVoice;
         }
-        u.pitch = PITCH[charId] || 1;
+        const char = this.chars.find(c => c.id === charId);
+        u.pitch = PITCH[charId] || (char?.age === 'child' ? 1.5 : char?.age === 'elder' ? 0.8 : 1);
         const base = lang === 'he' ? 0.85 : 0.9;
         u.rate = Math.min(2, Math.max(0.3, base * Math.min(4, Math.max(0.5, this.playbackSpeed))));
         const to = setTimeout(res, text.length * 80 + 3000);
@@ -319,6 +356,35 @@ export class Engine {
         /* ignore */
       }
     }
+  }
+
+  async playMelody(name: string) {
+    if (!this.audioCtx) return;
+    const now = this.audioCtx.currentTime;
+    const osc = this.audioCtx.createOscillator();
+    const g = this.audioCtx.createGain();
+    osc.connect(g);
+    g.connect(this.audioCtx.destination);
+    
+    // Simple melodies using frequency sequences
+    const melodies: Record<string, number[]> = {
+      'Ma Nishtana': [261, 329, 392, 523, 392, 329, 261],
+      'Dayenu': [392, 392, 392, 440, 349, 349, 349, 392, 329],
+      'Chad Gadya': [261, 293, 329, 349, 392, 440, 493, 523]
+    };
+
+    const notes = melodies[name] || melodies['Dayenu'];
+    let time = now;
+    notes.forEach(freq => {
+      osc.frequency.setValueAtTime(freq, time);
+      g.gain.setValueAtTime(0.1, time);
+      g.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
+      time += 0.5;
+    });
+
+    osc.type = 'triangle';
+    osc.start(now);
+    osc.stop(time);
   }
 
   public tradition: 'ashkenazi' | 'sephardi' = 'ashkenazi';

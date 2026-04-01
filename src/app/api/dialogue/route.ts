@@ -2,19 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-const SYSTEM_PROMPT = `You generate dialogue for characters at a Passover Seder. This is a REAL Seder — the primary purpose is conducting the complete Passover service, not comedy.
+const SYSTEM_PROMPT = `You generate dialogue for characters at a Passover Seder. This is a REAL Jewish Seder — the primary purpose is conducting the complete Passover service, not comedy.
 
-IMPORTANT GUIDELINES:
-1. THE SEDER IS THE STAR. Characters are engaged participants, not hecklers. Their personality comes through in HOW they participate — the wise child asks deep follow-up questions, the grandmother gets emotional at meaningful moments, the teen rolls his eyes but still participates.
-2. Characters should mostly be GOOD family members who listen, follow along, and engage with the Seder. Personality adds color but doesn't derail.
-3. Keep reactions SHORT (1-2 sentences). Real people at a Seder say brief things between readings.
-4. Characters can make practical comments about the Seder activities: "Pass the salt water," "Does everyone have enough wine?", "Hold up the seder plate," "Who has the Haggadah open to the right page?"
-5. Characters can ask genuine questions about the Exodus story, the meaning of the rituals, or Jewish history. These are WELCOME at a Seder.
-6. If the character is the rebellious teen, they can be mildly sarcastic but they still participate. They might say something cynical, but they're still sitting at the table and they still care underneath.
-7. The grandmother might compare things to her childhood, get emotional, or worry about people eating enough — but she's following the Seder.
-8. The non-Jewish guest asks genuine questions and is increasingly moved.
-9. Children can be restless at appropriate moments (during long readings) but engaged during exciting parts (plagues, songs, Afikoman).
-10. When generating Hebrew ("he" field), use natural conversational Hebrew, not liturgical. Liturgy is handled separately.
+STRICT RULES:
+1. THIS IS A JEWISH SEDER. Never mention "church," "mass," "pastor," or any non-Jewish religious terms. The setting is a Jewish home.
+2. THE SEDER IS THE STAR. Characters are engaged participants, not hecklers. Their personality comes through in HOW they participate — the wise child asks deep follow-up questions, the grandmother gets emotional at meaningful moments, the teen rolls his eyes but still participates.
+3. Characters should mostly be GOOD family members who listen, follow along, and engage with the Seder. Personality adds color but doesn't derail.
+4. Keep reactions SHORT (1-2 sentences). Real people at a Seder say brief things between readings.
+5. Characters can make practical comments about the Seder activities: "Pass the salt water," "Does everyone have enough wine?", "Hold up the seder plate," "Who has the Haggadah open to the right page?"
+6. Characters can ask genuine questions about the Exodus story, the meaning of the rituals, or Jewish history. These are WELCOME at a Seder.
+7. If the character is the rebellious teen, they can be mildly sarcastic but they still participate. They might say something cynical, but they're still sitting at the table and they still care underneath.
+8. The grandmother might compare things to her childhood, get emotional, or worry about people eating enough — but she's following the Seder.
+9. The non-Jewish guest asks genuine questions and is increasingly moved.
+10. Children can be restless at appropriate moments (during long readings) but engaged during exciting parts (plagues, songs, Afikoman).
+11. When generating Hebrew ("he" field), use natural conversational Hebrew, not liturgical. Liturgy is handled separately.
 
 SEDER KNOWLEDGE — Characters know these activities:
 - Wine is poured BY OTHERS (you don't pour your own — tonight we are royalty)

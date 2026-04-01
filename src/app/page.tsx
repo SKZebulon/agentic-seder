@@ -62,6 +62,7 @@ const SCRIPT: any[] = [
 
   // MAGGID
   {phase:'מַגִּיד · Maggid — The Telling'},
+  {melody:'Ma Nishtana'},
   {react:true, ctx:'Second cup poured (by others). Time for Ma Nishtana. Everyone looks at Noa. She practiced for weeks.', chars:['mother','father','uncle'], max:1},
   {act:'stand',who:'child_young'},
   {say:'child_young', en:"Why is this night different from all other nights?", he:"מַה נִּשְׁתַּנָּה הַלַּיְלָה הַזֶּה מִכָּל הַלֵּילוֹת?", dur:6000},
@@ -107,6 +108,7 @@ const SCRIPT: any[] = [
 
   // Dayenu
   {say:'leader', en:"How many levels of goodness has God bestowed upon us!", he:"כַּמָּה מַעֲלוֹת טוֹבוֹת לַמָּקוֹם עָלֵינוּ!", dur:3500},
+  {melody:'Dayenu'},
   {say:'all', en:"Had He brought us out of Egypt — DAYENU!", he:"אִלּוּ הוֹצִיאָנוּ מִמִּצְרַיִם — דַּיֵּנוּ!", dur:4500},
   {say:'all', en:"Had He given us the Shabbat — DAYENU!", he:"אִלּוּ נָתַן לָנוּ אֶת הַשַׁבָּת — דַּיֵּנוּ!", dur:3500},
   {say:'all', en:"Had He given us the Torah — DAYENU!", he:"אִלּוּ נָתַן לָנוּ אֶת הַתּוֹרָה — דַּיֵּנוּ!", dur:3500},
@@ -171,6 +173,7 @@ const SCRIPT: any[] = [
   {phase:'הַלֵּל · Hallel — Songs of Praise!'},
   {react:true, ctx:'Fourth cup being poured. Most joyful part — pure praise and singing. We SING after telling the story.', chars:['uncle','leader'], max:1},
   {say:'all', en:"Give thanks to the Lord for He is good, His kindness endures forever!", he:"הוֹדוּ לַה׳ כִּי טוֹב, כִּי לְעוֹלָם חַסְדּוֹ!", dur:5000},
+  {melody:'Chad Gadya'},
   {act:'drink'},
   {say:'all', en:"One little goat, one little goat, that father bought for two zuzim!", he:"חַד גַּדְיָא, חַד גַּדְיָא, דְּזַבִּין אַבָּא בִּתְרֵי זוּזֵי!", dur:6000},
   {react:true, ctx:'Chad Gadya gets faster each verse. Uncle banging table. Chaotic and joyful. Even the teen singing full voice — the Seder won him over. Guest singing phonetically.', chars:['uncle','child_wicked','guest','child_young'], max:2},
@@ -245,60 +248,147 @@ function Char({c,x,y,talking,standing,t}:any){
 }
 
 // ROOM
-function Room({doorOpen,onPlateClick,eaten,cups}:{doorOpen:boolean;onPlateClick?:(item:string)=>void;eaten:string[];cups:Record<string,number>}){return<g><rect x={0} y={0} width={1000} height={700} fill="#22190E"/>{Array.from({length:18}).map((_,i)=><rect key={i} x={0} y={i*40} width={1000} height={39} fill={i%2?'#2A1E12':'#2E2114'} stroke="#1E160C" strokeWidth={.5}/>)}<rect x={0} y={0} width={1000} height={70} fill="#3A2E1E"/><rect x={0} y={40} width={1000} height={30} fill="#33271A"/><rect x={30} y={75} width={200} height={80} rx={3} fill="#3D3025" stroke="#4A3C2A" strokeWidth={1}/><rect x={40} y={80} width={50} height={30} rx={2} fill="#555"/>{[55,65,75].map(x=><circle key={x} cx={x} cy={95} r={5} fill="#333"/>)}<rect x={100} y={80} width={40} height={40} rx={2} fill="#D4D4D4"/><rect x={150} y={78} width={70} height={72} rx={3} fill="#E8E0D0"/><text x={130} y={167} textAnchor="middle" fill="#5A4D3C" fontSize={9}>🍳 Kitchen</text><rect x={780} y={73} width={130} height={80} rx={2} fill="#4A3520"/>{[0,1,2].map(r=><g key={r}><rect x={784} y={77+r*25} width={122} height={22} fill="#3D2A15"/>{Array.from({length:8}).map((_,b)=><rect key={b} x={786+b*15} y={77+r*25+(22-(14+b%3*3))} width={10} height={14+b%3*3} rx={1} fill={['#8B1A1A','#1A3A6B','#2E5A37','#6B4A1A','#4A1A5A','#1A5A4A','#8B6B1A','#3A1A1A'][b%8]}/>)}</g>)}<rect x={630} y={8} width={80} height={55} rx={2} fill="#5A4530" stroke="#6B5A40" strokeWidth={2}/><rect x={634} y={12} width={72} height={47} fill="#1A3050"/><rect x={634} y={40} width={72} height={19} fill="#2A5A2A"/><circle cx={680} cy={25} r={8} fill="#FFD700" opacity={.6}/><rect x={820} y={170} width={100} height={50} rx={8} fill="#6B3A2A"/><rect x={820} y={165} width={15} height={55} rx={5} fill="#5A2A1A"/><rect x={905} y={165} width={15} height={55} rx={5} fill="#5A2A1A"/><rect x={940} y={280} width={45} height={80} rx={2} fill={doorOpen?'#1A1A3A':'#5A3D20'} stroke="#6B4E31" strokeWidth={2}/><circle cx={948} cy={320} r={3} fill="#DAA520"/>{doorOpen&&<text x={962} y={325} textAnchor="middle" fill="#FFD70066" fontSize={20}>✨</text>}<ellipse cx={500} cy={400} rx={290} ry={180} fill="#3A2515" stroke="#4A3525" strokeWidth={2}/><ellipse cx={500} cy={400} rx={250} ry={150} fill="#35200F"/><rect x={340} y={230} width={320} height={310} rx={10} fill="#6B4E31" stroke="#7B5E41" strokeWidth={2}/><rect x={348} y={236} width={304} height={298} rx={6} fill="#FAF0E0" opacity={.9}/><circle cx={500} cy={370} r={45} fill="#C8A870" stroke="#A88850" strokeWidth={2}/><circle cx={500} cy={370} r={38} fill="none" stroke="#B89860" strokeWidth={1}/>{[{a:0,c:'#4A7A3A',n:'Karpas'},{a:1,c:'#8B4513',n:'Zeroa'},{a:2,c:'#F5DEB3',n:'Egg'},{a:3,c:'#8B6040',n:'Charoset'},{a:4,c:'#3A6A2A',n:'Maror'},{a:5,c:'#2A5A1A',n:'Chazeret'}].map(({a,c,n},i)=>{const ang=(a/6)*Math.PI*2-Math.PI/2;const isEaten=eaten.includes(n);return<g key={i} onClick={()=>onPlateClick?.(n)} style={{cursor:'pointer',opacity:isEaten?.2:1,transition:'opacity .5s'}}><circle cx={500+Math.cos(ang)*22} cy={370+Math.sin(ang)*22} r={6} fill={c}/><text x={500+Math.cos(ang)*22} y={370+Math.sin(ang)*22+2} textAnchor="middle" fill="#00000066" fontSize={3.5}>{n}</text></g>})}{[482,498,514].map(x=><g key={x}><rect x={x} y={260} width={4} height={30} fill="#C0C0C0" rx={1}/><rect x={x} y={248} width={4} height={14} fill="#FFF8DC" rx={1}/>      <ellipse cx={x+2} cy={246} rx={3} ry={4} fill="#FFD700" opacity={.9} filter="url(#candleGlow)">
+function Room({doorOpen,onPlateClick,eaten,cups,chars}:{doorOpen:boolean;onPlateClick?:(item:string)=>void;eaten:string[];cups:Record<string,number>;chars:any[]}){
+  return<g>
+    {/* Floor */}
+    <rect x={0} y={0} width={1000} height={700} fill="#1a140d"/>
+    {Array.from({length:18}).map((_,i)=><rect key={i} x={0} y={i*40} width={1000} height={39} fill={i%2?'#221a12':'#261c14'} stroke="#1a140d" strokeWidth={.5}/>)}
+    
+    {/* Walls */}
+    <rect x={0} y={0} width={1000} height={100} fill="#2d2218"/>
+    <rect x={0} y={90} width={1000} height={10} fill="#1a140d" opacity={.3}/>
+    
+    {/* Kitchen Area */}
+    <rect x={30} y={20} width={180} height={60} rx={3} fill="#3D3025" stroke="#4A3C2A" strokeWidth={1}/>
+    <text x={120} y={105} textAnchor="middle" fill="#5A4D3C" fontSize={9}>🍳 Kitchen</text>
+    
+    {/* Bookshelf */}
+    <rect x={780} y={15} width={130} height={70} rx={2} fill="#4A3520"/>
+    {[0,1,2].map(r=><g key={r}><rect x={784} y={20+r*22} width={122} height={18} fill="#3D2A15"/>{Array.from({length:8}).map((_,b)=><rect key={b} x={786+b*15} y={20+r*22+(18-(12+b%3*3))} width={10} height={12+b%3*3} rx={1} fill={['#8B1A1A','#1A3A6B','#2E5A37','#6B4A1A','#4A1A5A','#1A5A4A','#8B6B1A','#3A1A1A'][b%8]}/>)}</g>)}
+    
+    {/* Door */}
+    <rect x={940} y={150} width={45} height={120} rx={2} fill={doorOpen?'#0a0a1a':'#4a2e18'} stroke="#5a3d20" strokeWidth={2}/>
+    <circle cx={948} cy={210} r={3} fill="#DAA520"/>
+    {doorOpen&&<text x={962} y={215} textAnchor="middle" fill="#FFD70066" fontSize={20}>✨</text>}
+
+    {/* THE TABLE - Large and Central */}
+    <ellipse cx={500} cy={420} rx={420} ry={220} fill="#3d2b1f" stroke="#4d3b2f" strokeWidth={4}/>
+    <ellipse cx={500} cy={420} rx={390} ry={195} fill="#453226" opacity={.8}/>
+    
+    {/* Tablecloth */}
+    <ellipse cx={500} cy={415} rx={360} ry={170} fill="#fdfaf0" stroke="#eee" strokeWidth={1}/>
+    <ellipse cx={500} cy={415} rx={340} ry={155} fill="none" stroke="#f0e8d0" strokeWidth={.5} strokeDasharray="10,5"/>
+
+    {/* Seder Plate */}
+    <circle cx={500} cy={415} r={65} fill="#d4bc8a" stroke="#b89860" strokeWidth={2}/>
+    <circle cx={500} cy={415} r={58} fill="none" stroke="#c8a870" strokeWidth={1}/>
+    {[{a:0,c:'#4A7A3A',n:'Karpas'},{a:1,c:'#8B4513',n:'Zeroa'},{a:2,c:'#F5DEB3',n:'Egg'},{a:3,c:'#8B6040',n:'Charoset'},{a:4,c:'#3A6A2A',n:'Maror'},{a:5,c:'#2A5A1A',n:'Chazeret'}].map(({a,c,n},i)=>{const ang=(a/6)*Math.PI*2-Math.PI/2;const isEaten=eaten.includes(n);return<g key={i} onClick={()=>onPlateClick?.(n)} style={{cursor:'pointer',opacity:isEaten?.2:1,transition:'opacity .5s'}}><circle cx={500+Math.cos(ang)*35} cy={415+Math.sin(ang)*35} r={10} fill={c} stroke="#00000022" strokeWidth={.5}/><text x={500+Math.cos(ang)*35} y={415+Math.sin(ang)*35+2} textAnchor="middle" fill="#00000088" fontSize={5} fontWeight={600}>{n}</text></g>})}
+
+    {/* Matzah Box */}
+    <rect x={380} y={380} width={50} height={45} rx={3} fill="#D2B48C" stroke="#c0a080" strokeWidth={.5}/>
+    <rect x={378} y={378} width={54} height={8} rx={2} fill="#F0E8D8"/>
+    
+    {/* Elijah's Cup */}
+    <rect x={580} y={375} width={18} height={28} rx={4} fill="#DAA520" stroke="#b8860b" strokeWidth={1}/>
+    <rect x={577} y={372} width={24} height={6} rx={2} fill="#DAA520"/>
+    <text x={589} y={415} textAnchor="middle" fill="#D4A017" fontSize={6} fontWeight={600}>Elijah</text>
+
+    {/* Candles */}
+    {[-25, 0, 25].map(dx=><g key={dx} transform={`translate(${500+dx}, 320)`}>
+      <rect x={-2} y={0} width={4} height={35} fill="#C0C0C0" rx={1}/>
+      <rect x={-2} y={-12} width={4} height={14} fill="#FFF8DC" rx={1}/>
+      <ellipse cx={0} cy={-14} rx={3} ry={4} fill="#FFD700" opacity={.9} filter="url(#candleGlow)">
         <animate attributeName="ry" values="4;5;3.5;4.5;4" dur="3s" repeatCount="indefinite" />
         <animate attributeName="opacity" values="0.8;1;0.7;0.9;0.8" dur="3s" repeatCount="indefinite" />
-      </ellipse></g>)}<rect x={390} y={310} width={40} height={30} rx={3} fill="#D2B48C"/><rect x={388} y={308} width={44} height={6} rx={2} fill="#F0E8D8"/><rect x={545} y={295} width={12} height={20} rx={3} fill="#DAA520"/><rect x={543} y={293} width={16} height={4} rx={2} fill="#DAA520"/><text x={551} y={328} textAnchor="middle" fill="#D4A017" fontSize={4}>Elijah</text>{CHARS.map(c=>{const s=c.seat;const dx=s.x<500?25:-25;const dy=s.y<400?20:s.y>450?-15:0;const px=s.x+dx,py=s.y+dy;const cupLevel=cups[c.id]||0;return<g key={c.id+'ps'}><circle cx={px} cy={py} r={14} fill="#FAF8F0" stroke="#DDD" strokeWidth={.5}/><circle cx={px} cy={py} r={11} fill="none" stroke="#E8E0D0" strokeWidth={.3}/><line x1={px-17} y1={py-8} x2={px-17} y2={py+10} stroke="#C0C0C0" strokeWidth={1}/><line x1={px+17} y1={py-8} x2={px+17} y2={py+10} stroke="#C0C0C0" strokeWidth={1.2}/><ellipse cx={px+20} cy={py-11} rx={4} ry={5} fill="none" stroke="#C8C8C8" strokeWidth={.5}/><ellipse cx={px+20} cy={py-9+ (5-(cupLevel%5)*1.2)} rx={3} ry={Math.max(0, (cupLevel%5)*0.8)} fill="#722F37" opacity={.5}/></g>})}{[482,498,514].map(x=><g key={x}><rect x={x} y={260} width={4} height={30} fill="#C0C0C0" rx={1}/><rect x={x} y={248} width={4} height={14} fill="#FFF8DC" rx={1}/>      <ellipse cx={x+2} cy={246} rx={3} ry={4} fill="#FFD700" opacity={.9} filter="url(#candleGlow)">
-        <animate attributeName="ry" values="4;5;3.5;4.5;4" dur="3s" repeatCount="indefinite" />
-        <animate attributeName="opacity" values="0.8;1;0.7;0.9;0.8" dur="3s" repeatCount="indefinite" />
-      </ellipse></g>)}<rect x={390} y={310} width={40} height={30} rx={3} fill="#D2B48C"/><rect x={388} y={308} width={44} height={6} rx={2} fill="#F0E8D8"/><rect x={545} y={295} width={12} height={20} rx={3} fill="#DAA520"/><rect x={543} y={293} width={16} height={4} rx={2} fill="#DAA520"/><text x={551} y={328} textAnchor="middle" fill="#D4A017" fontSize={4}>Elijah</text>{CHARS.map(c=>{const s=c.seat;const dx=s.x<500?25:-25;const dy=s.y<400?20:s.y>450?-15:0;const px=s.x+dx,py=s.y+dy;return<g key={c.id+'ps'}><circle cx={px} cy={py} r={14} fill="#FAF8F0" stroke="#DDD" strokeWidth={.5}/><circle cx={px} cy={py} r={11} fill="none" stroke="#E8E0D0" strokeWidth={.3}/><line x1={px-17} y1={py-8} x2={px-17} y2={py+10} stroke="#C0C0C0" strokeWidth={1}/><line x1={px+17} y1={py-8} x2={px+17} y2={py+10} stroke="#C0C0C0" strokeWidth={1.2}/><ellipse cx={px+20} cy={py-11} rx={4} ry={5} fill="none" stroke="#C8C8C8" strokeWidth={.5}/><ellipse cx={px+20} cy={py-9} rx={3} ry={3} fill="#722F37" opacity={.5}/></g>})}{CHARS.map(c=>{const s=c.seat;return<g key={c.id+'ch'}><rect x={s.x-14} y={s.y-10} width={28} height={22} rx={4} fill="#5A3D20" stroke="#6B4E31" strokeWidth={1}/><rect x={s.x-12} y={s.y-8} width={24} height={18} rx={3} fill="#8B1A1A" opacity={.6}/><rect x={s.x-14} y={s.y-18} width={28} height={10} rx={3} fill="#5A3D20"/></g>})}    <radialGradient id="glow" cx="500" cy="260" r="150" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stopColor="#FFAA33" stopOpacity="1">
-        <animate attributeName="stop-opacity" values="0.08;0.12;0.1;0.14;0.08" dur="4s" repeatCount="indefinite" />
+      </ellipse>
+    </g>)}
+
+    {/* Individual Place Settings */}
+    {chars.map(c=>{
+      const s=c.seat;
+      // Calculate angle from center to seat to position plate/cup
+      const ang = Math.atan2(s.y - 415, s.x - 500);
+      const px = s.x - Math.cos(ang) * 45;
+      const py = s.y - Math.sin(ang) * 45;
+      const cupLevel=cups[c.id]||0;
+      
+      return <g key={c.id+'set'}>
+        {/* Plate */}
+        <circle cx={px} cy={py} r={18} fill="#FAF8F0" stroke="#DDD" strokeWidth={.5}/>
+        <circle cx={px} cy={py} r={14} fill="none" stroke="#E8E0D0" strokeWidth={.3}/>
+        {/* Cup */}
+        <g transform={`translate(${px + 22}, ${py - 10})`}>
+          <ellipse cx={0} cy={0} rx={5} ry={6} fill="none" stroke="#C8C8C8" strokeWidth={.5}/>
+          <ellipse cx={0} cy={2 + (6-(cupLevel%5)*1.4)} rx={4} ry={Math.max(0, (cupLevel%5)*1.0)} fill="#722F37" opacity={.6}/>
+        </g>
+        {/* Haggadah */}
+        <rect x={px-30} y={py+5} width={20} height={25} rx={2} fill="#8B1A1A" opacity={.8} transform={`rotate(${ang * 57}, ${px-20}, ${py+15})`}/>
+      </g>
+    })}
+
+    {/* Ambient Glow */}
+    <radialGradient id="glow" cx="500" cy="350" r="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#FFAA33" stopOpacity="0.15">
+        <animate attributeName="stop-opacity" values="0.12;0.18;0.14;0.2;0.12" dur="4s" repeatCount="indefinite" />
       </stop>
       <stop offset="100%" stopColor="#FFAA33" stopOpacity="0"/>
     </radialGradient>
-    <filter id="charShadow">
-      <feDropShadow dx="0" dy="2" stdDeviation="1.5" floodOpacity="0.3" />
-    </filter>
-    <filter id="candleGlow">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
-      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="glow" />
-      <feComposite in="SourceGraphic" in2="glow" operator="over" />
-    </filter>
-    <rect x={0} y={0} width={1000} height={700} fill="url(#glow)"/>
-  </g>}
+    <rect x={0} y={0} width={1000} height={700} fill="url(#glow)" pointerEvents="none"/>
+  </g>
+}
 
 // BUBBLE
 function Bubble({x,y,text,he,isMobile}:any){if(!text&&!he)return null;const sc=isMobile?.6:1;const bx=Math.max(120*sc,Math.min(1000-120*sc,x));return<foreignObject x={bx-110*sc} y={Math.max(10,y-70*sc)} width={220*sc} height={120*sc} style={{overflow:'visible'}}><div style={{background:'rgba(15,12,8,.94)',border:'1px solid #D4A01755',borderRadius:12*sc,padding:`${7*sc}px ${11*sc}px`,color:'#F5F0E0',fontSize:12*sc,lineHeight:1.4,backdropFilter:'blur(6px)',boxShadow:'0 4px 20px rgba(0,0,0,.5)'}}>{he&&<div style={{direction:'rtl',textAlign:'right',marginBottom:text?4*sc:0,fontSize:13*sc}}>{he}</div>}{text&&<div style={{fontStyle:he?'italic':'normal',color:he?'#B8A88A':'#F5F0E0',fontSize:he?11*sc:12*sc}}>{text}</div>}</div></foreignObject>}
 
 // PROFILE PANEL
-function ProfilePanel({charId,onClose,isMobile}:{charId:string;onClose:()=>void;isMobile?:boolean}){
+function ProfilePanel({charId,onClose,isMobile,onUpdate}:{charId:string;onClose:()=>void;isMobile?:boolean;onUpdate?:()=>void}){
   const[md,setMd]=useState('Loading...');
+  const[meta,setMeta]=useState<any>(null);
   const[editing,setEditing]=useState(false);
   const[saving,setSaving]=useState(false);
   
   useEffect(()=>{
-    fetch(`/api/characters?id=${charId}`).then(r=>r.ok?r.text():'Not found').then(setMd).catch(()=>setMd('Error'))
+    fetch(`/api/characters?id=${charId}&type=md`).then(r=>r.ok?r.text():'Not found').then(setMd).catch(()=>setMd('Error'));
+    fetch(`/api/characters?id=${charId}&type=meta`).then(r=>r.ok?r.json():null).then(setMeta).catch(()=>setMeta(null));
   },[charId]);
 
   const save=async()=>{
     setSaving(true);
     try {
-      const r = await fetch('/api/characters', {
+      await fetch('/api/characters', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: charId, content: md })
       });
-      if (r.ok) setEditing(false);
-      else alert('Failed to save profile');
+      await fetch('/api/characters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: charId, meta, type: 'meta' })
+      });
+      setEditing(false);
+      onUpdate?.();
     } catch (e) {
       alert('Error saving profile');
     }
     setSaving(false);
   };
 
-  const c=CM[charId];
-  return<div style={{position:'absolute',top:0,right:0,width:isMobile?'100%':340,height:'100%',background:'rgba(15,12,8,.97)',borderLeft:'1px solid #3D3428',zIndex:50,overflow:'auto',padding:16}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}><div><b style={{color:'#E8D5B7',fontSize:16}}>{c?.name}</b><span style={{color:'#8B7355',fontSize:12,marginLeft:8}}>{c?.role}</span></div><button onClick={onClose} style={{background:'none',border:'none',color:'#8B7355',fontSize:18,cursor:'pointer'}}>✕</button></div><div style={{color:'#5A4D3C',fontSize:10,marginBottom:8}}>This profile is read by the AI to generate dialogue. Edit it to change how this character behaves at the Seder.</div>{editing?<textarea value={md} onChange={e=>setMd(e.target.value)} style={{width:'100%',height:'70vh',background:'#1A1410',color:'#D4C5A9',border:'1px solid #3D3428',borderRadius:8,padding:10,fontSize:11,lineHeight:1.5,resize:'none',outline:'none',fontFamily:'monospace'}}/>:<pre style={{color:'#D4C5A9',fontSize:11,lineHeight:1.5,whiteSpace:'pre-wrap',background:'#1A1410',borderRadius:8,padding:10,border:'1px solid #3D3428',maxHeight:'70vh',overflow:'auto'}}>{md}</pre>}<div style={{display:'flex',gap:8,marginTop:8}}>{editing?(<><button onClick={save} disabled={saving} style={{background:'#2A2118',border:'1px solid #3D3428',color:'#7EC87E',borderRadius:6,padding:'4px 12px',cursor:'pointer',fontSize:11}}>{saving?'Saving...':'Save Changes'}</><button onClick={()=>setEditing(false)} style={{background:'#2A2118',border:'1px solid #3D3428',color:'#8B7355',borderRadius:6,padding:'4px 12px',cursor:'pointer',fontSize:11}}>Cancel</button></>):(<button onClick={()=>setEditing(true)} style={{background:'#2A2118',border:'1px solid #3D3428',color:'#D4A017',borderRadius:6,padding:'4px 12px',cursor:'pointer',fontSize:11}}>Edit Profile</button>)}</div></div>}
+  if(!meta) return null;
+
+  return<div style={{position:'absolute',top:0,right:0,width:isMobile?'100%':340,height:'100%',background:'rgba(15,12,8,.97)',borderLeft:'1px solid #3D3428',zIndex:50,overflow:'auto',padding:16}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}><div><b style={{color:'#E8D5B7',fontSize:16}}>{meta.name}</b><span style={{color:'#8B7355',fontSize:12,marginLeft:8}}>{meta.role}</span></div><button onClick={onClose} style={{background:'none',border:'none',color:'#8B7355',fontSize:18,cursor:'pointer'}}>✕</button></div>
+    {editing ? (
+      <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:16}}>
+        <div style={{display:'flex',gap:8}}><input value={meta.name} onChange={e=>setMeta({...meta,name:e.target.value})} placeholder="Name" style={is}/> <input value={meta.role} onChange={e=>setMeta({...meta,role:e.target.value})} placeholder="Role" style={is}/></div>
+        <div style={{display:'flex',gap:8}}>
+          <select value={meta.gender} onChange={e=>setMeta({...meta,gender:e.target.value})} style={is}><option value="M">Male</option><option value="F">Female</option></select>
+          <select value={meta.age} onChange={e=>setMeta({...meta,age:e.target.value})} style={is}><option value="child">Child</option><option value="teen">Teen</option><option value="adult">Adult</option><option value="elder">Elder</option></select>
+        </div>
+      </div>
+    ) : null}
+    <div style={{color:'#5A4D3C',fontSize:10,marginBottom:8}}>This profile is read by the AI to generate dialogue. Edit it to change how this character behaves at the Seder.</div>
+    {editing?<textarea value={md} onChange={e=>setMd(e.target.value)} style={{width:'100%',height:'50vh',background:'#1A1410',color:'#D4C5A9',border:'1px solid #3D3428',borderRadius:8,padding:10,fontSize:11,lineHeight:1.5,resize:'none',outline:'none',fontFamily:'monospace'}}/>:<pre style={{color:'#D4C5A9',fontSize:11,lineHeight:1.5,whiteSpace:'pre-wrap',background:'#1A1410',borderRadius:8,padding:10,border:'1px solid #3D3428',maxHeight:'60vh',overflow:'auto'}}>{md}</pre>}
+    <div style={{display:'flex',gap:8,marginTop:8}}>{editing?(<><button onClick={save} disabled={saving} style={{background:'#2A2118',border:'1px solid #3D3428',color:'#7EC87E',borderRadius:6,padding:'4px 12px',cursor:'pointer',fontSize:11}}>{saving?'Saving...':'Save Changes'}</><button onClick={()=>setEditing(false)} style={{background:'#2A2118',border:'1px solid #3D3428',color:'#8B7355',borderRadius:6,padding:'4px 12px',cursor:'pointer',fontSize:11}}>Cancel</button></>):(<button onClick={()=>setEditing(true)} style={{background:'#2A2118',border:'1px solid #3D3428',color:'#D4A017',borderRadius:6,padding:'4px 12px',cursor:'pointer',fontSize:11}}>Edit Profile</button>)}</div></div>
+}
 
 // MAIN
 export default function Seder(){
@@ -306,6 +396,7 @@ export default function Seder(){
   const[tradition,setTradition]=useState<'ashkenazi'|'sephardi'>('ashkenazi');
   const[speakLang,setSpeakLang]=useState<'en'|'he'|'both'>('en');
   const[svc,setSvc]=useState({hasEL:false,hasAI:false,elevenlabsCustomVoice:false});
+  const[chars,setChars]=useState<any[]>([]);
   const[pos,setPos]=useState<Record<string,{x:number;y:number}>>({});
   const[spk,setSpk]=useState<string|null>(null);
   const[standing,setStanding]=useState<string[]>([]);
@@ -327,11 +418,22 @@ export default function Seder(){
   const[profileChar,setProfileChar]=useState<string|null>(null);
   const[showSettings,setShowSettings]=useState(false);
   const[isMobile,setIsMobile]=useState(false);
-  useEffect(()=>{const ck=()=>setIsMobile(window.innerWidth<768);ck();window.addEventListener('resize',ck);return()=>window.removeEventListener('resize',ck)},[]);
+  const[history,setHistory]=useState<string[]>([]);
+  const hRef=useRef<string[]>([]);
+  useEffect(()=>{hRef.current=history},[history]);
+
+  const loadChars=()=>fetch('/api/characters?type=all').then(r=>r.ok?r.json():[]).then(data=>{
+    if(data.length){
+      setChars(data);
+      setPos(Object.fromEntries(data.map((c:any)=>[c.id,{...c.seat}])));
+    }
+  });
+
+  useEffect(()=>{loadChars()},[]);
+  useEffect(()=>{setIsMobile(window.innerWidth<768);const ck=()=>setIsMobile(window.innerWidth<768);window.addEventListener('resize',ck);return()=>window.removeEventListener('resize',ck)},[]);
   const engRef=useRef<Engine|null>(null);
   const pRef=useRef(false);const sRef=useRef(1);
 
-  useEffect(()=>{setPos(Object.fromEntries(CHARS.map(c=>[c.id,{...c.seat}])))},[]);
   useEffect(()=>{pRef.current=paused},[paused]);
   useEffect(()=>{sRef.current=speed},[speed]);
   useEffect(()=>{if(!go)return;let r:number;const f=()=>{setT(v=>v+.016);r=requestAnimationFrame(f)};r=requestAnimationFrame(f);return()=>cancelAnimationFrame(r)},[go]);
@@ -349,14 +451,10 @@ export default function Seder(){
     else e.resumePlayback();
   },[paused,go]);
 
-  const[history,setHistory]=useState<string[]>([]);
-  const hRef=useRef<string[]>([]);
-  useEffect(()=>{hRef.current=history},[history]);
-
   const wt=(ms:number)=>new Promise<void>(r=>{const ck=()=>{if(!pRef.current){ms-=16*sRef.current;if(ms<=0)r();else setTimeout(ck,16)}else setTimeout(ck,100)};ck()});
   /** Movement respects pause + speed (faster pace = quicker walks). */
   const mv=(w:string,to:{x:number;y:number},dur:number)=>new Promise<void>(r=>{
-    const st={...(pos[w]||CM[w]?.seat||{x:500,y:400})};
+    const st={...(pos[w]||chars.find(c=>c.id===w)?.seat||{x:500,y:400})};
     const sp=sRef.current;
     const totalMs=dur/sp;
     const tickMs=Math.max(8,30/sp);
@@ -404,6 +502,8 @@ export default function Seder(){
     engRef.current=eng;
     void eng.startAmbient();
 
+    const CM: Record<string, any> = Object.fromEntries(chars.map(c => [c.id, c]));
+
     for(let i=0;i<SCRIPT.length;i++){
       while(pRef.current)await new Promise(r=>setTimeout(r,200));
       const b=SCRIPT[i];setBi(i);
@@ -418,12 +518,12 @@ export default function Seder(){
         await wt(3000);continue;
       }
       if(b.act==='end'){setDone(true);return}
-      if(b.act==='stand'){setStanding(s=>{const ids=b.who==='all'?CHARS.map(c=>c.id):[b.who];return[...new Set([...s,...ids])]});await wt(500);continue}
+      if(b.act==='stand'){setStanding(s=>{const ids=b.who==='all'?chars.map(c=>c.id):[b.who];return[...new Set([...s,...ids])]});await wt(500);continue}
       if(b.act==='sit'){setStanding(s=>b.who==='all'?[]:s.filter((id:string)=>id!==b.who));await wt(500);continue}
       if(b.act==='move'){await mv(b.who,b.to,b.dur||1000);continue}
       if(b.act==='drink'||b.act==='eat'){
         setSub({he:'',en:b.act==='drink'?'Everyone drinks, leaning left! 🍷':'Everyone eats!'});
-        if(b.act==='drink')setCups(prev=>{const n={...prev};CHARS.forEach(c=>n[c.id]=(n[c.id]||0)+1);return n});
+        if(b.act==='drink')setCups(prev=>{const n={...prev};chars.forEach(c=>n[c.id]=(n[c.id]||0)+1);return n});
         if(b.act==='eat'){
           if(phase.includes('Karpas'))setEaten(prev=>[...prev,'Karpas']);
           if(phase.includes('Maror'))setEaten(prev=>[...prev,'Maror']);
@@ -433,6 +533,7 @@ export default function Seder(){
         await wt(3000);continue;
       }
       if(b.act==='door'){setDoorOpen(true);setSub({he:'',en:'The door opens... the candles flicker... ✨'});await wt(5000);setDoorOpen(false);continue}
+      if(b.melody){void engRef.current?.playMelody(b.melody);continue}
 
       // AGENTIC — AI reads .md files, generates unique dialogue
       if(b.react){
@@ -465,7 +566,7 @@ export default function Seder(){
     setGo(true);
     setTimeout(run,500);
   };
-  const sc=spk?CM[spk]:null;
+  const sc=spk?chars.find(c=>c.id===spk):null;
 
   // SPLASH
   if(!go)return(
@@ -505,6 +606,8 @@ export default function Seder(){
     </div>
   );
 
+  const is = {background:'#1A1410',color:'#D4C5A9',border:'1px solid #3D3428',borderRadius:6,padding:'4px 8px',fontSize:11,outline:'none',width:'100%'};
+
   // MAIN SCENE
   return(
     <div style={{width:'100vw',height:'100dvh',background:'#1A1410',overflow:'hidden',fontFamily:"'Crimson Pro',Georgia,serif",display:'flex',flexDirection:'column',position:'relative'}}>
@@ -520,22 +623,32 @@ export default function Seder(){
         <div style={{color:'#8B7355',fontSize:11,marginBottom:6}}>Speak</div>
         <div style={{display:'flex',gap:4,marginBottom:10}}>{([['en','EN'],['he','עב'],['both','Both']] as const).map(([v,l])=><button key={v} onClick={()=>{setSpeakLang(v as any);if(engRef.current)engRef.current.speakLang=v as any}} style={{background:speakLang===v?'#3A2A10':'#1A1410',border:`1px solid ${speakLang===v?'#D4A017':'#3D3428'}`,color:speakLang===v?'#D4A017':'#5A4D3C',borderRadius:6,padding:'3px 10px',cursor:'pointer',fontSize:10}}>{l}</button>)}</div>
         <div style={{color:'#8B7355',fontSize:11,marginBottom:6}}>Profiles</div>
-        <div style={{display:'flex',flexWrap:'wrap',gap:4}}>{CHARS.map(c=><button key={c.id} onClick={()=>{setProfileChar(c.id);setShowSettings(false)}} style={{background:'#1A1410',border:'1px solid #3D3428',color:'#D4C5A9',borderRadius:6,padding:'2px 8px',cursor:'pointer',fontSize:9}}>{c.name}</button>)}</div>
+        <div style={{display:'flex',flexWrap:'wrap',gap:4}}>{chars.map(c=><button key={c.id} onClick={()=>{setProfileChar(c.id);setShowSettings(false)}} style={{background:'#1A1410',border:'1px solid #3D3428',color:'#D4C5A9',borderRadius:6,padding:'2px 8px',cursor:'pointer',fontSize:9}}>{c.name}</button>)}</div>
         <div style={{color:'#5A4D3C',fontSize:9,marginTop:8}}>{svc.hasAI?'🟢 Claude':'⚪ Fallback'} · {svc.hasEL?(svc.elevenlabsCustomVoice?'🟢 EL (custom voice)':'🟢 ElevenLabs'):'⚪ Browser'}</div>
       </div>}
-      {profileChar&&<ProfilePanel charId={profileChar} onClose={()=>setProfileChar(null)} isMobile={isMobile}/>}
-      <svg viewBox={isMobile?`${cam.x} ${cam.y} ${cam.w} ${cam.h}`:"0 0 1000 700"} style={{flex:1,width:'100%'}}><Room doorOpen={doorOpen} eaten={eaten} cups={cups} onPlateClick={async(item)=>{
+      {profileChar&&<ProfilePanel charId={profileChar} onClose={()=>setProfileChar(null)} isMobile={isMobile} onUpdate={loadChars}/>}
+      <svg viewBox={isMobile?`${cam.x} ${cam.y} ${cam.w} ${cam.h}`:"0 0 1000 700"} style={{flex:1,width:'100%'}}><Room doorOpen={doorOpen} eaten={eaten} cups={cups} chars={chars} onPlateClick={async(item)=>{
         if(!engRef.current)return;
         const ctx=`The user clicked on ${item} on the Seder plate. Explain its significance briefly in character.`;
-        const rxs=await engRef.current.react(ctx,['leader','mother','child_wise'],phase,1);
+        const rxs=await engRef.current.react(ctx,['leader','mother','child_wise'],phase,1,hRef.current);
         for(const rx of rxs){
-          const c=CM[rx.speaker]||CM.leader;const p=pos[rx.speaker]||c.seat;
+          const c=chars.find(ch=>ch.id===rx.speaker)||chars.find(ch=>ch.id==='leader');const p=pos[rx.speaker]||c.seat;
           setSpk(rx.speaker);setSub({he:rx.he||'',en:rx.en||''});
           setBub({x:p.x,y:p.y,text:rx.en,he:rx.he});
+          setHistory(prev=>[...prev.slice(-10),`${c.name}: ${rx.en}`]);
           await Promise.race([engRef.current.speakLine(rx.en,rx.he,rx.speaker),wt(Math.max((rx.en||rx.he).length*75,2500))]);
           setSpk(null);setBub(null);
         }
-      }}/>{CHARS.map(c=>{const p=pos[c.id]||c.seat;return<Char key={c.id} c={c} x={p.x} y={p.y} talking={spk===c.id||spk==='all'} standing={standing.includes(c.id)} t={t}/>})}{!isMobile&&bub&&<Bubble x={bub.x} y={bub.y} text={bub.text} he={bub.he} isMobile={isMobile}/>}</svg>
+      }}/>{chars.map(c=>{const p=pos[c.id]||c.seat;return<Char key={c.id} c={c} x={p.x} y={p.y} talking={spk===c.id||spk==='all'} standing={standing.includes(c.id)} t={t}/>})}{!isMobile&&bub&&<Bubble x={bub.x} y={bub.y} text={bub.text} he={bub.he} isMobile={isMobile}/>}
+      <filter id="charShadow">
+        <feDropShadow dx="0" dy="2" stdDeviation="1.5" floodOpacity="0.3" />
+      </filter>
+      <filter id="candleGlow">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+        <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="glow" />
+        <feComposite in="SourceGraphic" in2="glow" operator="over" />
+      </filter>
+      </svg>
       {(sub.he||sub.en)&&<div style={{position:'absolute',bottom:isMobile?60:44,left:'50%',transform:'translateX(-50%)',width:'92%',maxWidth:620,background:'rgba(8,6,3,.93)',borderRadius:10,padding:'10px 16px',border:'1px solid #D4A01722',zIndex:10}}>{shH&&sub.he&&<p style={{color:'#FAF0E6',fontSize:isMobile?18:15,lineHeight:1.4,margin:0,direction:'rtl',textAlign:'right'}}>{sub.he}</p>}{shE&&sub.en&&<p style={{color:shH&&sub.he?'#B8A88A':'#FAF0E6',fontSize:isMobile?(shH&&sub.he?14:16):(shH&&sub.he?12:14),margin:shH&&sub.he?'4px 0 0':0,fontStyle:shH&&sub.he?'italic':'normal'}}>{sub.en}</p>}</div>}
       <div style={{padding:'5px 10px',background:'rgba(8,6,3,.95)',borderTop:'1px solid #1A1410',display:'flex',justifyContent:'space-between',alignItems:'center',gap:5,flexShrink:0}}>
         <div style={{display:'flex',gap:4,alignItems:'center',flexWrap:'wrap'}}><button onClick={()=>setPaused(p=>!p)} style={bs} title="Pause or resume">{paused?'▶':'⏸'}</button><span style={{color:'#5A4D3C',fontSize:8}}>Pace</span><select value={speed} onChange={e=>setSpeed(+e.target.value)} style={{...bs,fontSize:9,padding:'2px 4px'}} title="Faster pace shortens gaps and speeds up speech"><option value={.5}>0.5×</option><option value={1}>1×</option><option value={1.5}>1.5×</option><option value={2}>2×</option><option value={3}>3×</option><option value={4}>4×</option></select></div>
