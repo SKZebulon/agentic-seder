@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { Engine } from '@/engine/engine';
+import { Engine, unlockWebAudio } from '@/engine/engine';
 
 const CHARS = [
   { id:'leader', name:'Rabbi David', role:'Seder Leader', seat:{x:500,y:235}, color:'#F5F0DC', hair:'#AAA', skin:'#C9A87C', gender:'M', age:'elder', kippah:true, beard:true },
@@ -305,7 +305,11 @@ export default function Seder(){
     }
   };
 
-  const start=()=>{setGo(true);setTimeout(run,500)};
+  const start=()=>{
+    unlockWebAudio();
+    setGo(true);
+    setTimeout(run,500);
+  };
   const sc=spk?CM[spk]:null;
 
   // SPLASH
@@ -366,7 +370,7 @@ export default function Seder(){
       <div style={{padding:'5px 10px',background:'rgba(8,6,3,.95)',borderTop:'1px solid #1A1410',display:'flex',justifyContent:'space-between',alignItems:'center',gap:5,flexShrink:0}}>
         <div style={{display:'flex',gap:4,alignItems:'center',flexWrap:'wrap'}}><button onClick={()=>setPaused(p=>!p)} style={bs} title="Pause or resume">{paused?'▶':'⏸'}</button><span style={{color:'#5A4D3C',fontSize:8}}>Pace</span><select value={speed} onChange={e=>setSpeed(+e.target.value)} style={{...bs,fontSize:9,padding:'2px 4px'}} title="Faster pace shortens gaps and speeds up speech"><option value={.5}>0.5×</option><option value={1}>1×</option><option value={1.5}>1.5×</option><option value={2}>2×</option><option value={3}>3×</option><option value={4}>4×</option></select></div>
         <div style={{flex:1,margin:'0 8px'}}><div style={{height:3,background:'#1A1410',borderRadius:2}}><div style={{height:3,borderRadius:2,background:'#D4A017',width:`${SCRIPT.length?(bi/SCRIPT.length)*100:0}%`,transition:'width .3s'}}/></div><div style={{color:'#5A4D3C',fontSize:7,textAlign:'center',marginTop:1}}>{bi+1}/{SCRIPT.length}</div></div>
-        <div style={{display:'flex',gap:3}}><button onClick={()=>setShH(h=>!h)} style={{...bs,background:shH?'#3A2A10':'#1A1410',color:shH?'#D4A017':'#5A4D3C',fontSize:9}}>עב</button><button onClick={()=>setShE(e=>!e)} style={{...bs,background:shE?'#3A2A10':'#1A1410',color:shE?'#D4A017':'#5A4D3C',fontSize:9}}>EN</button><button onClick={()=>{setAudOn(a=>!a);engRef.current?.stop()}} style={{...bs,color:audOn?'#D4A017':'#5A4D3C'}}>{audOn?'🔊':'🔇'}</button></div>
+        <div style={{display:'flex',gap:3}}><button onClick={()=>setShH(h=>!h)} style={{...bs,background:shH?'#3A2A10':'#1A1410',color:shH?'#D4A017':'#5A4D3C',fontSize:9}}>עב</button><button onClick={()=>setShE(e=>!e)} style={{...bs,background:shE?'#3A2A10':'#1A1410',color:shE?'#D4A017':'#5A4D3C',fontSize:9}}>EN</button><button onClick={()=>{setAudOn(a=>{const on=!a;if(on)unlockWebAudio();return on});engRef.current?.stop()}} style={{...bs,color:audOn?'#D4A017':'#5A4D3C'}} title="Sound">{audOn?'🔊':'🔇'}</button></div>
       </div>
       {done&&<div style={{position:'absolute',inset:0,background:'rgba(0,0,0,.92)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100}}><div style={{textAlign:'center'}}><div style={{fontSize:56,marginBottom:12}}>🕯️✡️🕯️</div><h2 style={{color:'#D4A017',fontSize:26,fontWeight:200}}>לְשָׁנָה הַבָּאָה בִּירוּשָׁלָיִם</h2><p style={{color:'#FAF0E6',fontSize:15}}>Next Year in Jerusalem</p><p style={{color:'#8B7355',fontSize:12,margin:'4px 0 16px'}}>Chag Pesach Sameach!</p><button onClick={()=>window.location.reload()} style={{background:'linear-gradient(135deg,#8B1A1A,#4A0A0A)',color:'#FAF0E6',border:'none',borderRadius:10,padding:'10px 28px',fontSize:14,cursor:'pointer'}}>Watch Again</button></div></div>}
     </div>

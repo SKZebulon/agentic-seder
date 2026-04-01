@@ -138,6 +138,10 @@ The API must receive `language_code: "he"` for Hebrew text; otherwise the model 
 
 For **browser TTS** fallback, Chrome loads voices asynchronously — the code waits for `voiceschanged` so a Hebrew voice can be selected.
 
+### Mobile audio (iPhone / Android)
+
+Browsers require a **user tap** before `AudioContext` and speech can play. The app calls `unlockWebAudio()` when you tap **Light the Candles** (and when turning sound back on). Use a real tap, not a page refresh; keep the phone ringer switch / volume in a normal position if you hear nothing.
+
 ### Security (keys and sharing)
 
 - **GitHub:** Only placeholders belong in the repo (see `.env.example`). Real keys live in `.env.local` (ignored) or Vercel env — never commit them. If a key was ever committed, **rotate it** in Anthropic / ElevenLabs and remove it from git history or treat it as burned.

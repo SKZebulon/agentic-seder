@@ -1,6 +1,45 @@
 // Engine: Audio (ElevenLabs via proxy + Web Speech) + Agentic Dialogue (Claude via proxy)
 // Supports Hebrew and English speech
 
+/** One shared context — mobile Safari requires resume() during a user gesture; we unlock on "Start" before any async work. */
+let sharedAudioContext: AudioContext | null = null;
+
+function getSharedAudioContext(): AudioContext {
+  if (typeof window === 'undefined') {
+    throw new Error('AudioContext requires window');
+  }
+  if (!sharedAudioContext) {
+    const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AC) throw new Error('No AudioContext');
+    sharedAudioContext = new AC();
+  }
+  return sharedAudioContext;
+}
+
+/**
+ * Call synchronously from a click/touch handler (e.g. "Light the Candles").
+ * iOS/Android often block AudioContext until this runs inside the gesture chain — not after setTimeout/network.
+ */
+export function unlockWebAudio(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    void getSharedAudioContext().resume();
+  } catch {
+    /* ignore */
+  }
+  try {
+    const s = window.speechSynthesis;
+    if (!s) return;
+    s.cancel();
+    const u = new SpeechSynthesisUtterance('\u00A0');
+    u.volume = 0;
+    s.speak(u);
+    s.cancel();
+  } catch {
+    /* ignore */
+  }
+}
+
 const VOICES: Record<string, { voiceId: string; stability: number; style: number }> = {
   leader:      { voiceId: 'TxGEqnHWrfWFTfGW9XjX', stability: 0.7, style: 0.3 },
   mother:      { voiceId: '21m00Tcm4TlvDq8ikWAM', stability: 0.6, style: 0.4 },
@@ -109,7 +148,7 @@ export class Engine {
             }
           } catch { /* ignore */ }
         } else if (r.ok && ct.includes('audio')) {
-          if (!this.audioCtx) this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          this.audioCtx = getSharedAudioContext();
           if (this.audioCtx.state === 'suspended') await this.audioCtx.resume();
           const ab = await r.arrayBuffer();
           if (ab.byteLength > 100) {
