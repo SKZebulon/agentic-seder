@@ -189,6 +189,14 @@ export class Engine {
             return l.startsWith('he') || l.startsWith('iw'); // iw = legacy Hebrew
           });
           if (heVoice) u.voice = heVoice;
+        } else {
+          // Explicitly set English voice if available to avoid getting stuck on Hebrew voice
+          const voices = synth.getVoices();
+          const enVoice = voices.find(v => {
+            const l = (v.lang || '').toLowerCase();
+            return l.startsWith('en-us') || l.startsWith('en-gb') || l.startsWith('en');
+          });
+          if (enVoice) u.voice = enVoice;
         }
         u.pitch = PITCH[charId] || 1;
         const base = lang === 'he' ? 0.85 : 0.9;
@@ -199,7 +207,7 @@ export class Engine {
         synth.speak(u);
       };
 
-      if (lang === 'he' && synth.getVoices().length === 0) {
+      if (synth.getVoices().length === 0) {
         synth.addEventListener('voiceschanged', () => setTimeout(run, 0), { once: true });
         return;
       }
