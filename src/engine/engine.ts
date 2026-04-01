@@ -74,7 +74,14 @@ export class Engine {
           body: JSON.stringify({ text, voiceId: v.voiceId, stability: v.stability, similarity_boost: 0.75, style: v.style })
         });
         const ct = r.headers.get('content-type') || '';
-        if (r.ok && ct.includes('audio')) {
+        if (r.ok && ct.includes('application/json')) {
+          try {
+            const j = await r.json() as { ok?: boolean; error?: string; detail?: string };
+            if (j?.ok === false) {
+              console.warn('ElevenLabs:', j.error || 'failed', j.detail ? `— ${j.detail.slice(0, 120)}` : '');
+            }
+          } catch { /* ignore */ }
+        } else if (r.ok && ct.includes('audio')) {
           if (!this.audioCtx) this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
           if (this.audioCtx.state === 'suspended') await this.audioCtx.resume();
           const ab = await r.arrayBuffer();
