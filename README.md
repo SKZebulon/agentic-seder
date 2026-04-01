@@ -121,6 +121,14 @@ Audio uses the **Web Speech API** — free, built into every browser, no API key
 | v2 | Google Cloud TTS | Good | Free tier |
 | v3 | ElevenLabs | Amazing | ~$5/mo |
 
+### ElevenLabs troubleshooting (`paid_plan_required`)
+
+The built-in character voices use **library / premade** voice IDs. ElevenLabs only allows those over the **API** on a **paid** workspace, and the **API key must be created while that subscription is active**.
+
+1. **Regenerate the API key** at [elevenlabs.io](https://elevenlabs.io) → Profile → API Keys, paste into Vercel as `ELEVENLABS_API_KEY`, and **redeploy**. Keys issued on a free tier stay invalid for library voices even after you upgrade until you create a new key.
+
+2. **Or** set `ELEVENLABS_DEFAULT_VOICE_ID` in Vercel to a Voice ID from **My Voices** (your own voice, instant clone, etc.). The app will use that single voice for every character, which avoids the “library voice” restriction for many accounts.
+
 ## 📱 Social Media
 
 Designed to be clipped and shared. Key viral moments:

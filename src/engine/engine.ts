@@ -30,15 +30,23 @@ export class Engine {
   public audioEnabled = true;
   public speakLang: 'en' | 'he' | 'both' = 'en'; // which language to SPEAK aloud
 
-  async init(): Promise<{ hasEL: boolean; hasAI: boolean }> {
+  async init(): Promise<{
+    hasEL: boolean;
+    hasAI: boolean;
+    elevenlabsCustomVoice: boolean;
+  }> {
     if (typeof window !== 'undefined') this.synth = window.speechSynthesis;
+    let elevenlabsCustomVoice = false;
     try {
       const r = await fetch('/api/config');
       const cfg = await r.json();
       this.hasEL = !!cfg.elevenlabs;
       this.hasAI = !!cfg.anthropic;
-    } catch {}
-    return { hasEL: this.hasEL, hasAI: this.hasAI };
+      elevenlabsCustomVoice = !!cfg.elevenlabsCustomVoice;
+    } catch {
+      /* ignore */
+    }
+    return { hasEL: this.hasEL, hasAI: this.hasAI, elevenlabsCustomVoice };
   }
 
   // Speak text — picks language based on speakLang setting
@@ -78,7 +86,14 @@ export class Engine {
           try {
             const j = await r.json() as { ok?: boolean; error?: string; detail?: string };
             if (j?.ok === false) {
-              console.warn('ElevenLabs:', j.error || 'failed', j.detail ? `— ${j.detail.slice(0, 120)}` : '');
+              if (j.error === 'paid_plan_required') {
+                console.warn(
+                  'ElevenLabs: paid plan required for default library voices via API. Fix: (1) Regenerate API key at elevenlabs.io after your subscription is active and paste into Vercel as ELEVENLABS_API_KEY. (2) Or set ELEVENLABS_DEFAULT_VOICE_ID to a Voice ID from *your* account (Voices → your voice → copy ID).',
+                  j.detail ? `\n${j.detail.slice(0, 400)}` : ''
+                );
+              } else {
+                console.warn('ElevenLabs:', j.error || 'failed', j.detail ? `— ${j.detail.slice(0, 200)}` : '');
+              }
             }
           } catch { /* ignore */ }
         } else if (r.ok && ct.includes('audio')) {

@@ -5,8 +5,12 @@ function elevenKey() {
 }
 
 export async function GET() {
+  const elKey = elevenKey();
+  const defaultVoice = (process.env.ELEVENLABS_DEFAULT_VOICE_ID || '').trim();
   return NextResponse.json({
     anthropic: !!process.env.ANTHROPIC_API_KEY,
-    elevenlabs: !!elevenKey(),
+    elevenlabs: !!elKey,
+    /** Server replaces all character voice IDs with this (avoids "library voices" API restrictions when set). */
+    elevenlabsCustomVoice: !!defaultVoice,
   });
 }

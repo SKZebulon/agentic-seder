@@ -201,7 +201,7 @@ export default function Seder(){
   const[go,setGo]=useState(false);
   const[tradition,setTradition]=useState<'ashkenazi'|'sephardi'>('ashkenazi');
   const[speakLang,setSpeakLang]=useState<'en'|'he'|'both'>('en');
-  const[svc,setSvc]=useState({hasEL:false,hasAI:false});
+  const[svc,setSvc]=useState({hasEL:false,hasAI:false,elevenlabsCustomVoice:false});
   const[pos,setPos]=useState<Record<string,{x:number;y:number}>>({});
   const[spk,setSpk]=useState<string|null>(null);
   const[standing,setStanding]=useState<string[]>([]);
@@ -291,10 +291,18 @@ export default function Seder(){
           <span style={{color:'#5A4D3C',fontSize:11,alignSelf:'center'}}>Speak:</span>
           {([['en','English'],['he','עברית'],['both','Both']] as const).map(([v,l])=><button key={v} onClick={()=>setSpeakLang(v as any)} style={{background:speakLang===v?'#3A2A10':'#1A1410',border:`1px solid ${speakLang===v?'#D4A017':'#3D3428'}`,color:speakLang===v?'#D4A017':'#5A4D3C',borderRadius:6,padding:'4px 12px',cursor:'pointer',fontSize:11}}>{l}</button>)}
         </div>
-        <div style={{color:'#5A4D3C',fontSize:10,marginBottom:16,lineHeight:1.8}}>
+        <div style={{color:'#5A4D3C',fontSize:10,marginBottom:8,lineHeight:1.8}}>
           {svc.hasAI?'🟢 AI Dialogue (Claude reads .md profiles)':'⚪ Fallback dialogue'}<br/>
-          {svc.hasEL?'🟢 Natural voices (ElevenLabs)':'⚪ Browser voices'}
+          {svc.hasEL?(svc.elevenlabsCustomVoice?'🟢 ElevenLabs (your voice ID on server)':'🟢 Natural voices (ElevenLabs)'):'⚪ Browser voices'}
         </div>
+        {svc.hasEL && !svc.elevenlabsCustomVoice && (
+          <p style={{color:'#6A5D4C',fontSize:9,maxWidth:420,margin:'0 auto 14px',lineHeight:1.45}}>
+            If you see <code style={{fontSize:8,color:'#8B7355'}}>paid_plan_required</code>: the API key must be from a <strong>paid</strong> workspace (regenerate the key after upgrading). Or set <code style={{fontSize:8,color:'#8B7355'}}>ELEVENLABS_DEFAULT_VOICE_ID</code> in Vercel to a voice ID from <em>your</em> ElevenLabs account (not the built‑in library list).
+          </p>
+        )}
+        {svc.hasEL && svc.elevenlabsCustomVoice && (
+          <p style={{color:'#6A5D4C',fontSize:9,margin:'0 auto 14px'}}>Using <code style={{fontSize:8}}>ELEVENLABS_DEFAULT_VOICE_ID</code> for all characters.</p>
+        )}
         <button onClick={start} style={{background:'linear-gradient(135deg,#8B1A1A,#4A0A0A)',color:'#FAF0E6',border:'none',borderRadius:12,padding:'15px 46px',fontSize:18,cursor:'pointer',fontFamily:"'Crimson Pro',serif",boxShadow:'0 4px 30px rgba(139,26,26,.3)'}}>Light the Candles</button>
         <div style={{color:'#3D3428',fontSize:10,marginTop:16}}>github.com/skzebulon/agentic-seder · Open Source</div>
       </div>
@@ -317,7 +325,7 @@ export default function Seder(){
         <div style={{display:'flex',gap:4,marginBottom:10}}>{([['en','EN'],['he','עב'],['both','Both']] as const).map(([v,l])=><button key={v} onClick={()=>{setSpeakLang(v as any);if(engRef.current)engRef.current.speakLang=v as any}} style={{background:speakLang===v?'#3A2A10':'#1A1410',border:`1px solid ${speakLang===v?'#D4A017':'#3D3428'}`,color:speakLang===v?'#D4A017':'#5A4D3C',borderRadius:6,padding:'3px 10px',cursor:'pointer',fontSize:10}}>{l}</button>)}</div>
         <div style={{color:'#8B7355',fontSize:11,marginBottom:6}}>Profiles</div>
         <div style={{display:'flex',flexWrap:'wrap',gap:4}}>{CHARS.map(c=><button key={c.id} onClick={()=>{setProfileChar(c.id);setShowSettings(false)}} style={{background:'#1A1410',border:'1px solid #3D3428',color:'#D4C5A9',borderRadius:6,padding:'2px 8px',cursor:'pointer',fontSize:9}}>{c.name}</button>)}</div>
-        <div style={{color:'#5A4D3C',fontSize:9,marginTop:8}}>{svc.hasAI?'🟢 Claude':'⚪ Fallback'} · {svc.hasEL?'🟢 ElevenLabs':'⚪ Browser'}</div>
+        <div style={{color:'#5A4D3C',fontSize:9,marginTop:8}}>{svc.hasAI?'🟢 Claude':'⚪ Fallback'} · {svc.hasEL?(svc.elevenlabsCustomVoice?'🟢 EL (custom voice)':'🟢 ElevenLabs'):'⚪ Browser'}</div>
       </div>}
       {profileChar&&<ProfilePanel charId={profileChar} onClose={()=>setProfileChar(null)}/>}
       <svg viewBox="0 0 1000 700" style={{flex:1,width:'100%'}}><Room doorOpen={doorOpen}/>{CHARS.map(c=>{const p=pos[c.id]||c.seat;return<Char key={c.id} c={c} x={p.x} y={p.y} talking={spk===c.id||spk==='all'} standing={standing.includes(c.id)} t={t}/>})}{bub&&<Bubble x={bub.x} y={bub.y} text={bub.text} he={bub.he}/>}</svg>

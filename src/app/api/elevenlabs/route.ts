@@ -11,12 +11,31 @@ function apiKey() {
   return process.env.ELEVENLABS_API_KEY || process.env.ELEVEN_LABS_API_KEY;
 }
 
-/** JSON body for failures — use 200 so the client is not a "502 Bad Gateway"; engine only plays audio when Content-Type is audio/*. */
+/** Optional: one voice ID from *your* ElevenLabs account (Voices → ⋮ → Copy ID). Replaces premade library IDs. */
+function defaultVoiceIdFromEnv() {
+  return (process.env.ELEVENLABS_DEFAULT_VOICE_ID || '').trim();
+}
+
+/** JSON body for failures — use 200 so the client is not a gateway error; engine only plays audio when Content-Type is audio/*. */
 function failJson(message: string, detail?: string) {
   return NextResponse.json(
-    { ok: false, error: message, detail: detail?.slice(0, 500) },
+    { ok: false, error: message, detail: detail?.slice(0, 800) },
     { status: 200, headers: { 'Cache-Control': 'no-store' } }
   );
+}
+
+/** Parse ElevenLabs error JSON for early exit (don't retry every model). */
+function parseElError(body: string): { code?: string; type?: string } {
+  try {
+    const j = JSON.parse(body) as { detail?: { code?: string; type?: string } | string };
+    const d = j.detail;
+    if (d && typeof d === 'object') {
+      return { code: d.code, type: d.type };
+    }
+  } catch {
+    /* ignore */
+  }
+  return {};
 }
 
 export async function POST(req: NextRequest) {
@@ -39,10 +58,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { text, voiceId, stability, similarity_boost, style } = body;
+  const { text, voiceId: requestedVoiceId, stability, similarity_boost, style } = body;
 
-  if (!text?.trim() || !voiceId) {
+  if (!text?.trim() || !requestedVoiceId) {
     return NextResponse.json({ ok: false, error: 'Missing text or voiceId' }, { status: 400 });
+  }
+
+  const override = defaultVoiceIdFromEnv();
+  const voiceId = override || requestedVoiceId;
+  if (override) {
+    console.log('ElevenLabs: using ELEVENLABS_DEFAULT_VOICE_ID for all lines');
   }
 
   const voice_settings = {
@@ -93,7 +118,17 @@ export async function POST(req: NextRequest) {
         `ElevenLabs model ${model_id} failed ${resp.status}: ${lastBody.slice(0, 300)}`
       );
 
-      // Do not retry on auth / quota — same for all models
+      const err = parseElError(lastBody);
+      if (err.code === 'paid_plan_required' || err.type === 'payment_required') {
+        return failJson(
+          'paid_plan_required',
+          lastBody +
+            (override
+              ? ''
+              : ' — Tip: create or pick a voice under *My Voices* in ElevenLabs, copy its Voice ID, and set ELEVENLABS_DEFAULT_VOICE_ID in Vercel. Or regenerate your API key after upgrading so it is tied to the paid workspace.')
+        );
+      }
+
       if (resp.status === 401 || resp.status === 403) {
         return failJson('unauthorized', lastBody);
       }
