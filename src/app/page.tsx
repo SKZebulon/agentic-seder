@@ -272,7 +272,33 @@ function Room({doorOpen,onPlateClick,eaten,cups}:{doorOpen:boolean;onPlateClick?
 function Bubble({x,y,text,he,isMobile}:any){if(!text&&!he)return null;const sc=isMobile?.6:1;const bx=Math.max(120*sc,Math.min(1000-120*sc,x));return<foreignObject x={bx-110*sc} y={Math.max(10,y-70*sc)} width={220*sc} height={120*sc} style={{overflow:'visible'}}><div style={{background:'rgba(15,12,8,.94)',border:'1px solid #D4A01755',borderRadius:12*sc,padding:`${7*sc}px ${11*sc}px`,color:'#F5F0E0',fontSize:12*sc,lineHeight:1.4,backdropFilter:'blur(6px)',boxShadow:'0 4px 20px rgba(0,0,0,.5)'}}>{he&&<div style={{direction:'rtl',textAlign:'right',marginBottom:text?4*sc:0,fontSize:13*sc}}>{he}</div>}{text&&<div style={{fontStyle:he?'italic':'normal',color:he?'#B8A88A':'#F5F0E0',fontSize:he?11*sc:12*sc}}>{text}</div>}</div></foreignObject>}
 
 // PROFILE PANEL
-function ProfilePanel({charId,onClose,isMobile}:{charId:string;onClose:()=>void;isMobile?:boolean}){const[md,setMd]=useState('Loading...');const[editing,setEditing]=useState(false);const fm:Record<string,string>={leader:'leader',mother:'mother',father:'father',savta:'savta',saba:'saba',child_young:'child-youngest',child_wise:'child-wise',child_wicked:'child-wicked',child_simple:'child-simple',uncle:'uncle',aunt:'aunt',guest:'guest'};useEffect(()=>{fetch(`/characters/${fm[charId]||charId}.md`).then(r=>r.ok?r.text():'Not found').then(setMd).catch(()=>setMd('Error'))},[charId]);const c=CM[charId];return<div style={{position:'absolute',top:0,right:0,width:isMobile?'100%':340,height:'100%',background:'rgba(15,12,8,.97)',borderLeft:'1px solid #3D3428',zIndex:50,overflow:'auto',padding:16}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}><div><b style={{color:'#E8D5B7',fontSize:16}}>{c?.name}</b><span style={{color:'#8B7355',fontSize:12,marginLeft:8}}>{c?.role}</span></div><button onClick={onClose} style={{background:'none',border:'none',color:'#8B7355',fontSize:18,cursor:'pointer'}}>✕</button></div><div style={{color:'#5A4D3C',fontSize:10,marginBottom:8}}>This profile is read by the AI to generate dialogue. Edit it to change how this character behaves at the Seder.</div>{editing?<textarea value={md} onChange={e=>setMd(e.target.value)} style={{width:'100%',height:'70vh',background:'#1A1410',color:'#D4C5A9',border:'1px solid #3D3428',borderRadius:8,padding:10,fontSize:11,lineHeight:1.5,resize:'none',outline:'none',fontFamily:'monospace'}}/>:<pre style={{color:'#D4C5A9',fontSize:11,lineHeight:1.5,whiteSpace:'pre-wrap',background:'#1A1410',borderRadius:8,padding:10,border:'1px solid #3D3428',maxHeight:'70vh',overflow:'auto'}}>{md}</pre>}<button onClick={()=>setEditing(!editing)} style={{marginTop:8,background:'#2A2118',border:'1px solid #3D3428',color:'#D4A017',borderRadius:6,padding:'4px 12px',cursor:'pointer',fontSize:11}}>{editing?'Done':'Edit Profile'}</button></div>}
+function ProfilePanel({charId,onClose,isMobile}:{charId:string;onClose:()=>void;isMobile?:boolean}){
+  const[md,setMd]=useState('Loading...');
+  const[editing,setEditing]=useState(false);
+  const[saving,setSaving]=useState(false);
+  
+  useEffect(()=>{
+    fetch(`/api/characters?id=${charId}`).then(r=>r.ok?r.text():'Not found').then(setMd).catch(()=>setMd('Error'))
+  },[charId]);
+
+  const save=async()=>{
+    setSaving(true);
+    try {
+      const r = await fetch('/api/characters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: charId, content: md })
+      });
+      if (r.ok) setEditing(false);
+      else alert('Failed to save profile');
+    } catch (e) {
+      alert('Error saving profile');
+    }
+    setSaving(false);
+  };
+
+  const c=CM[charId];
+  return<div style={{position:'absolute',top:0,right:0,width:isMobile?'100%':340,height:'100%',background:'rgba(15,12,8,.97)',borderLeft:'1px solid #3D3428',zIndex:50,overflow:'auto',padding:16}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}><div><b style={{color:'#E8D5B7',fontSize:16}}>{c?.name}</b><span style={{color:'#8B7355',fontSize:12,marginLeft:8}}>{c?.role}</span></div><button onClick={onClose} style={{background:'none',border:'none',color:'#8B7355',fontSize:18,cursor:'pointer'}}>✕</button></div><div style={{color:'#5A4D3C',fontSize:10,marginBottom:8}}>This profile is read by the AI to generate dialogue. Edit it to change how this character behaves at the Seder.</div>{editing?<textarea value={md} onChange={e=>setMd(e.target.value)} style={{width:'100%',height:'70vh',background:'#1A1410',color:'#D4C5A9',border:'1px solid #3D3428',borderRadius:8,padding:10,fontSize:11,lineHeight:1.5,resize:'none',outline:'none',fontFamily:'monospace'}}/>:<pre style={{color:'#D4C5A9',fontSize:11,lineHeight:1.5,whiteSpace:'pre-wrap',background:'#1A1410',borderRadius:8,padding:10,border:'1px solid #3D3428',maxHeight:'70vh',overflow:'auto'}}>{md}</pre>}<div style={{display:'flex',gap:8,marginTop:8}}>{editing?(<><button onClick={save} disabled={saving} style={{background:'#2A2118',border:'1px solid #3D3428',color:'#7EC87E',borderRadius:6,padding:'4px 12px',cursor:'pointer',fontSize:11}}>{saving?'Saving...':'Save Changes'}</><button onClick={()=>setEditing(false)} style={{background:'#2A2118',border:'1px solid #3D3428',color:'#8B7355',borderRadius:6,padding:'4px 12px',cursor:'pointer',fontSize:11}}>Cancel</button></>):(<button onClick={()=>setEditing(true)} style={{background:'#2A2118',border:'1px solid #3D3428',color:'#D4A017',borderRadius:6,padding:'4px 12px',cursor:'pointer',fontSize:11}}>Edit Profile</button>)}</div></div>}
 
 // MAIN
 export default function Seder(){
