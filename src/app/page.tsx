@@ -586,7 +586,7 @@ export default function Seder() {
         <div style={{display:'flex',gap:3}}>
           <button onClick={()=>setShH(h=>!h)} style={{...bs,background:shH?'#3A2A10':'#1A1410',color:shH?'#D4A017':'#5A4D3C',fontSize:9}}>עב</button>
           <button onClick={()=>setShE(e=>!e)} style={{...bs,background:shE?'#3A2A10':'#1A1410',color:shE?'#D4A017':'#5A4D3C',fontSize:9}}>EN</button>
-          <button onClick={()=>{setAudOn(a=>!a);aRef.current?.stop();}} style={{...bs,color:audOn?'#D4A017':'#5A4D3C'}}>{audOn?'🔊':'🔇'}</button>
+          <button onClick={()=>{setAudOn(a=>!a);engRef.current?.stop();}} style={{...bs,color:audOn?'#D4A017':'#5A4D3C'}}>{audOn?'🔊':'🔇'}</button>
         </div>
       </div>
 
