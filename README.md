@@ -95,14 +95,17 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Environment Variables (optional)
 
-For AI-generated dialogue, you need a Claude API key:
+Use **server-only** variables in `.env.local` (local) and in **Vercel → Settings → Environment Variables** (production). They are read only by `/api/*` routes and are **not** exposed to the browser or embedded in the client JavaScript bundle.
 
 ```bash
-# .env.local
-NEXT_PUBLIC_ANTHROPIC_API_KEY=your_key_here
+# .env.local (never commit this file — it is gitignored)
+ANTHROPIC_API_KEY=sk-ant-...
+ELEVENLABS_API_KEY=...   # optional; see ElevenLabs section below
 ```
 
-Without an API key, the app uses built-in fallback dialogue — still fun, just not AI-generated.
+Do **not** put secret keys in `NEXT_PUBLIC_*` variables — those are inlined into the downloaded JS and are visible to anyone.
+
+Without API keys, the app uses built-in fallback dialogue and browser TTS — still fun, just not AI-generated premium audio.
 
 ## 🔊 Audio
 
@@ -134,6 +137,12 @@ The built-in character voices use **library / premade** voice IDs. ElevenLabs on
 The API must receive `language_code: "he"` for Hebrew text; otherwise the model assumes English and pronunciation sounds wrong. This app sends that automatically for Hebrew lines.
 
 For **browser TTS** fallback, Chrome loads voices asynchronously — the code waits for `voiceschanged` so a Hebrew voice can be selected.
+
+### Security (keys and sharing)
+
+- **GitHub:** Only placeholders belong in the repo (see `.env.example`). Real keys live in `.env.local` (ignored) or Vercel env — never commit them. If a key was ever committed, **rotate it** in Anthropic / ElevenLabs and remove it from git history or treat it as burned.
+- **Vercel:** Dashboard environment variables are **not** public. Visitors cannot read them. The deployed site does not ship your API keys to clients unless you mistakenly use a `NEXT_PUBLIC_` prefix for secrets.
+- **`/api/config`** only returns booleans (`anthropic`, `elevenlabs`, …), not key material.
 
 ## 📱 Social Media
 
